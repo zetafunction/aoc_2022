@@ -8,11 +8,36 @@ enum HandShape {
     Scissors,
 }
 
+impl FromStr for HandShape {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "A" | "X" => Ok(HandShape::Rock),
+            "B" | "Y" => Ok(HandShape::Paper),
+            "C" | "Z" => Ok(HandShape::Scissors),
+            _ => Err("non-matching symbol"),
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 enum Outcome {
     Loss,
     Draw,
     Win,
+}
+
+impl FromStr for Outcome {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "X" => Ok(Outcome::Loss),
+            "Y" => Ok(Outcome::Draw),
+            "Z" => Ok(Outcome::Win),
+            _ => Err("non-matching symbol"),
+        }
+    }
 }
 
 struct ParsedLine {
@@ -29,28 +54,10 @@ impl FromStr for ParsedLine {
         if parts.len() != 2 {
             return Err("each line must have 2 parts");
         }
-        let opponent_shape = match parts[0] {
-            "A" => HandShape::Rock,
-            "B" => HandShape::Paper,
-            "C" => HandShape::Scissors,
-            _ => return Err("non-matching symbol"),
-        };
-        let my_shape = match parts[1] {
-            "X" => HandShape::Rock,
-            "Y" => HandShape::Paper,
-            "Z" => HandShape::Scissors,
-            _ => return Err("non-matching symbol"),
-        };
-        let outcome = match parts[1] {
-            "X" => Outcome::Loss,
-            "Y" => Outcome::Draw,
-            "Z" => Outcome::Win,
-            _ => return Err("non-matching symbol"),
-        };
         Ok(ParsedLine {
-            opponent_shape: opponent_shape,
-            my_shape: my_shape,
-            outcome: outcome,
+            opponent_shape: parts[0].parse::<HandShape>()?,
+            my_shape: parts[1].parse::<HandShape>()?,
+            outcome: parts[1].parse::<Outcome>()?,
         })
     }
 }
