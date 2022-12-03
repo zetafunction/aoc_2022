@@ -1,6 +1,7 @@
 use std::io;
+use std::str::FromStr;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 enum HandShape {
     Rock,
     Paper,
@@ -14,103 +15,99 @@ enum Outcome {
     Win,
 }
 
-const POINTS_FOR_LOSS: u32 = 0;
-const POINTS_FOR_DRAW: u32 = 3;
-const POINTS_FOR_WIN: u32 = 6;
+struct ParsedLine {
+    opponent_shape: HandShape,
+    my_shape: HandShape,
+    outcome: Outcome,
+}
 
-fn parse_hand_shape(input: char, base: char) -> HandShape {
-    match input as u32 - base as u32 {
-        0 => HandShape::Rock,
-        1 => HandShape::Paper,
-        2 => HandShape::Scissors,
-        _ => unreachable!(),
+impl FromStr for ParsedLine {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(' ').collect();
+        if parts.len() != 2 {
+            return Err("each line must have 2 parts");
+        }
+        let opponent_shape = match parts[0] {
+            "A" => HandShape::Rock,
+            "B" => HandShape::Paper,
+            "C" => HandShape::Scissors,
+            _ => return Err("non-matching symbol"),
+        };
+        let my_shape = match parts[1] {
+            "X" => HandShape::Rock,
+            "Y" => HandShape::Paper,
+            "Z" => HandShape::Scissors,
+            _ => return Err("non-matching symbol"),
+        };
+        let outcome = match parts[1] {
+            "X" => Outcome::Loss,
+            "Y" => Outcome::Draw,
+            "Z" => Outcome::Win,
+            _ => return Err("non-matching symbol"),
+        };
+        Ok(ParsedLine {
+            opponent_shape: opponent_shape,
+            my_shape: my_shape,
+            outcome: outcome,
+        })
     }
 }
 
-fn determine_outcome(opponent_shape: HandShape, my_shape: HandShape) -> Outcome {
-    match opponent_shape {
-        HandShape::Rock => match my_shape {
-            HandShape::Rock => Outcome::Draw,
-            HandShape::Paper => Outcome::Win,
-            HandShape::Scissors => Outcome::Loss,
-        },
-        HandShape::Paper => match my_shape {
-            HandShape::Rock => Outcome::Loss,
-            HandShape::Paper => Outcome::Draw,
-            HandShape::Scissors => Outcome::Win,
-        },
-        HandShape::Scissors => match my_shape {
-            HandShape::Rock => Outcome::Win,
-            HandShape::Paper => Outcome::Loss,
-            HandShape::Scissors => Outcome::Draw,
-        },
+fn determine_outcome(x: &ParsedLine) -> Outcome {
+    match (x.opponent_shape, x.my_shape) {
+        (HandShape::Rock, HandShape::Paper) => Outcome::Win,
+        (HandShape::Paper, HandShape::Scissors) => Outcome::Win,
+        (HandShape::Scissors, HandShape::Rock) => Outcome::Win,
+        (a, b) if a == b => Outcome::Draw,
+        _ => Outcome::Loss,
     }
 }
 
-fn determine_shape_score(shape: HandShape) -> u32 {
-    match shape {
+fn determine_shape_score(x: HandShape) -> u32 {
+    match x {
         HandShape::Rock => 1,
         HandShape::Paper => 2,
         HandShape::Scissors => 3,
     }
 }
 
-fn parse_outcome(input: char, base: char) -> Outcome {
-    match input as u32 - base as u32 {
-        0 => Outcome::Loss,
-        1 => Outcome::Draw,
-        2 => Outcome::Win,
-        _ => unreachable!(),
+fn determine_outcome_score(x: Outcome) -> u32 {
+    match x {
+        Outcome::Loss => 0,
+        Outcome::Draw => 3,
+        Outcome::Win => 6,
     }
 }
 
-fn determine_outcome_score(outcome: Outcome) -> u32 {
-    match outcome {
-        Outcome::Loss => POINTS_FOR_LOSS,
-        Outcome::Draw => POINTS_FOR_DRAW,
-        Outcome::Win => POINTS_FOR_WIN,
-    }
-}
-
-fn determine_shape_from_outcome(opponent_shape: HandShape, outcome: Outcome) -> HandShape {
-    match opponent_shape {
-        HandShape::Rock => match outcome {
-            Outcome::Loss => HandShape::Scissors,
-            Outcome::Draw => HandShape::Rock,
-            Outcome::Win => HandShape::Paper,
-        },
-        HandShape::Paper => match outcome {
-            Outcome::Loss => HandShape::Rock,
-            Outcome::Draw => HandShape::Paper,
-            Outcome::Win => HandShape::Scissors,
-        },
-        HandShape::Scissors => match outcome {
-            Outcome::Loss => HandShape::Paper,
-            Outcome::Draw => HandShape::Scissors,
-            Outcome::Win => HandShape::Rock,
-        },
+fn determine_shape_from_outcome(x: &ParsedLine) -> HandShape {
+    match (x.opponent_shape, x.outcome) {
+        (x, Outcome::Draw) => x,
+        (HandShape::Rock, Outcome::Win) => HandShape::Paper,
+        (HandShape::Paper, Outcome::Win) => HandShape::Scissors,
+        (HandShape::Scissors, Outcome::Win) => HandShape::Rock,
+        (HandShape::Rock, Outcome::Loss) => HandShape::Scissors,
+        (HandShape::Paper, Outcome::Loss) => HandShape::Rock,
+        (HandShape::Scissors, Outcome::Loss) => HandShape::Paper,
     }
 }
 
 fn main() {
+    let parsed_lines: Vec<ParsedLine> = io::stdin()
+        .lines()
+        .map(|l| l.unwrap().parse::<ParsedLine>().unwrap())
+        .collect();
     let mut score = 0;
     let mut score2 = 0;
-    for line in io::stdin().lines() {
-        let line = line.unwrap();
-        let mut chars = line.chars();
-
-        let elf_shape = parse_hand_shape(chars.next().unwrap(), 'A');
-        let my_input = chars.last().unwrap();
-
+    for parsed_line in &parsed_lines {
         // Part 1
-        let my_shape = parse_hand_shape(my_input, 'X');
-        score += determine_outcome_score(determine_outcome(elf_shape, my_shape));
-        score += determine_shape_score(my_shape);
+        score += determine_outcome_score(determine_outcome(parsed_line));
+        score += determine_shape_score(parsed_line.my_shape);
 
         // Part 2
-        let outcome = parse_outcome(my_input, 'X');
-        score2 += determine_shape_score(determine_shape_from_outcome(elf_shape, outcome));
-        score2 += determine_outcome_score(outcome);
+        score2 += determine_shape_score(determine_shape_from_outcome(parsed_line));
+        score2 += determine_outcome_score(parsed_line.outcome);
     }
     println!("{}", score);
     println!("{}", score2);
