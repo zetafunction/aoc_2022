@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::io;
 use std::str::FromStr;
@@ -47,10 +48,14 @@ fn get_priority(c: char) -> Result<u32, Oops> {
     }
 }
 
-fn parse<T: AsRef<str>>(lines: &[T]) -> Result<Vec<Rucksack>, Oops> {
+fn parse<I>(lines: I) -> Result<Vec<Rucksack>, Oops>
+where
+    I: IntoIterator,
+    I::Item: Borrow<str>,
+{
     lines
-        .iter()
-        .map(|x| x.as_ref().trim().parse::<Rucksack>())
+        .into_iter()
+        .map(|x| x.borrow().trim().parse::<Rucksack>())
         .collect()
 }
 
@@ -85,7 +90,7 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
 }
 
 fn main() -> Result<(), Oops> {
-    let rucksacks = parse(&io::stdin().lines().collect::<Result<Vec<_>, _>>()?)?;
+    let rucksacks = parse(io::stdin().lines().map(|l| l.unwrap()))?;
 
     println!("{}", part1(&rucksacks)?);
     println!("{}", part2(&rucksacks)?);
@@ -98,25 +103,19 @@ mod tests {
     use super::*;
 
     const SAMPLE: &str = r#"vJrwpWtwJgWrhcsFMMfFFhFp
-        jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
-        PmmdzqPrVvPwwTWBwg
-        wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
-        ttgJtRGJQctTZtZT
-        CrZsJsPPZsGzwwsLwLmpwMDw"#;
+    jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+    PmmdzqPrVvPwwTWBwg
+    wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+    ttgJtRGJQctTZtZT
+    CrZsJsPPZsGzwwsLwLmpwMDw"#;
 
     #[test]
     fn example1() {
-        assert_eq!(
-            157,
-            part1(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
-        );
+        assert_eq!(157, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(
-            70,
-            part2(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
-        );
+        assert_eq!(70, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 }
