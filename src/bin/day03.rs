@@ -13,17 +13,14 @@
 //  limitations under the License.
 
 use std::collections::HashSet;
-use std::error::Error;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::io;
-use std::io::Read;
+use std::fmt::{Display, Formatter};
+use std::io::{self, Read};
 use std::str::FromStr;
 
 #[derive(Debug)]
 enum Oops {
     Message(String),
-    RealError(Box<dyn Error>),
+    RealError(Box<dyn std::error::Error>),
 }
 
 impl Display for Oops {
