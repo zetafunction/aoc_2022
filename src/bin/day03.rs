@@ -71,14 +71,9 @@ fn get_priority(c: char) -> Result<u32, Box<dyn Error>> {
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let rucksacks = io::stdin()
-        .lines()
-        .map(|x| x?.parse::<Rucksack>())
-        .collect::<Result<Vec<_>, _>>()?;
-
+fn part1(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
     let mut item_priorities = 0;
-    for rucksack in &rucksacks {
+    for rucksack in rucksacks {
         let common_items = rucksack
             .compartment_one
             .intersection(&rucksack.compartment_two);
@@ -86,7 +81,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             item_priorities += get_priority(*x)?;
         }
     }
+    Ok(item_priorities)
+}
 
+fn part2(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
     let mut badge_priorities = 0;
     let chunks = rucksacks.chunks_exact(3);
     for group in chunks {
@@ -96,9 +94,23 @@ fn main() -> Result<(), Box<dyn Error>> {
             badge_priorities += get_priority(*x)?;
         }
     }
+    Ok(badge_priorities)
+}
 
-    println!("{}", item_priorities);
-    println!("{}", badge_priorities);
+fn main() -> Result<(), Box<dyn Error>> {
+    let rucksacks = io::stdin()
+        .lines()
+        .map(|x| x?.parse::<Rucksack>())
+        .collect::<Result<Vec<_>, _>>()?;
+
+    println!("{}", part1(&rucksacks)?);
+    println!("{}", part2(&rucksacks)?);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn example() {}
 }
