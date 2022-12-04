@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
+use std::borrow::Borrow;
 use std::io;
 use std::str::FromStr;
 
@@ -30,8 +31,15 @@ impl FromStr for Entity {
     }
 }
 
-fn parse<T: AsRef<str>>(lines: &[T]) -> Result<Vec<Entity>, Oops> {
-    lines.iter().map(|x| x.as_ref().trim().parse()).collect()
+fn parse<I>(lines: I) -> Result<Vec<Entity>, Oops>
+where
+    I: IntoIterator,
+    I::Item: Borrow<str>,
+{
+    lines
+        .into_iter()
+        .map(|x| x.borrow().trim().parse())
+        .collect()
 }
 
 fn part1(entities: &[Entity]) -> Result<u32, Oops> {
@@ -39,15 +47,15 @@ fn part1(entities: &[Entity]) -> Result<u32, Oops> {
 }
 
 fn part2(entities: &[Entity]) -> Result<u32, Oops> {
-    Ok(entities
+    entities
         .iter()
         .map(|x| x.value)
         .max()
-        .ok_or(aoc_2022::oops!("no entities"))?)
+        .ok_or_else(|| aoc_2022::oops!("no entities"))
 }
 
 fn main() -> Result<(), Oops> {
-    let entities = parse(&io::stdin().lines().collect::<Result<Vec<_>, _>>()?)?;
+    let entities = parse(io::stdin().lines().map(|l| l.unwrap()))?;
 
     println!("{}", part1(&entities)?);
     println!("{}", part2(&entities)?);
@@ -65,17 +73,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(
-            6,
-            part1(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
-        );
+        assert_eq!(6, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(
-            3,
-            part2(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
-        );
+        assert_eq!(3, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 }
