@@ -17,6 +17,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io;
+use std::io::Read;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -71,6 +72,13 @@ fn get_priority(c: char) -> Result<u32, Box<dyn Error>> {
     }
 }
 
+fn parse(input: &str) -> Result<Vec<Rucksack>, Box<dyn Error>> {
+    input
+        .lines()
+        .map(|x| x.trim().parse::<Rucksack>())
+        .collect()
+}
+
 fn part1(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
     let mut item_priorities = 0;
     for rucksack in rucksacks {
@@ -98,10 +106,9 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let rucksacks = io::stdin()
-        .lines()
-        .map(|x| x?.parse::<Rucksack>())
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input)?;
+    let rucksacks = parse(&input)?;
 
     println!("{}", part1(&rucksacks)?);
     println!("{}", part2(&rucksacks)?);
@@ -111,6 +118,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    const SAMPLE: &str = r#"vJrwpWtwJgWrhcsFMMfFFhFp
+        jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+        PmmdzqPrVvPwwTWBwg
+        wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+        ttgJtRGJQctTZtZT
+        CrZsJsPPZsGzwwsLwLmpwMDw"#;
+
     #[test]
-    fn example() {}
+    fn example1() {
+        assert_eq!(157, part1(&parse(SAMPLE).unwrap()).unwrap());
+    }
+
+    #[test]
+    fn example2() {
+        assert_eq!(70, part2(&parse(SAMPLE).unwrap()).unwrap());
+    }
 }
