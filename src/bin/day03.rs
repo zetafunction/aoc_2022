@@ -94,15 +94,19 @@ fn part1(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
 
 fn part2(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
     let mut badge_priorities = 0;
-    let chunks = rucksacks.chunks_exact(3);
-    for group in chunks {
+    let mut chunks = rucksacks.chunks_exact(3);
+    for group in &mut chunks {
         let (x, y, z) = (&group[0].contents, &group[1].contents, &group[2].contents);
         let common_items = x.iter().filter(|x| y.contains(x)).filter(|x| z.contains(x));
         for x in common_items {
             badge_priorities += get_priority(*x)?;
         }
     }
-    Ok(badge_priorities)
+    if chunks.remainder().len() > 0 {
+        Err(Oops::new("leftover rucksacks"))
+    } else {
+        Ok(badge_priorities)
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
