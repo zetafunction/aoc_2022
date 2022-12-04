@@ -37,7 +37,7 @@ impl FromStr for Range {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts = s.split("-");
+        let mut parts = s.split('-');
         Ok(Range {
             low: parts
                 .next()
@@ -60,7 +60,7 @@ impl FromStr for Entity {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts = s.split(",");
+        let mut parts = s.split(',');
         Ok(Entity {
             first: parts
                 .next()
@@ -112,12 +112,14 @@ fn main() -> Result<(), Oops> {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = r#"2-4,6-8
-2-3,4-5
-5-7,7-9
-2-8,3-7
-6-6,4-6
-2-6,4-8"#;
+    const SAMPLE: &str = concat!(
+        "2-4,6-8\n",
+        "2-3,4-5\n",
+        "5-7,7-9\n",
+        "2-8,3-7\n",
+        "6-6,4-6\n",
+        "2-6,4-8"
+    );
 
     #[test]
     fn example1() {
