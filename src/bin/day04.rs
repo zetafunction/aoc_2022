@@ -28,8 +28,7 @@ impl Range {
     }
 
     fn overlaps(&self, other: &Range) -> bool {
-        (self.low >= other.low && self.low <= other.high)
-            || (self.high >= other.low && self.high <= other.high)
+        !(self.high < other.low || self.low > other.high)
     }
 }
 
@@ -91,7 +90,7 @@ fn part1(entities: &[Entity]) -> usize {
 fn part2(entities: &[Entity]) -> usize {
     entities
         .iter()
-        .filter(|e| e.first.overlaps(&e.second) || e.second.overlaps(&e.first))
+        .filter(|e| e.first.overlaps(&e.second))
         .count()
 }
 
