@@ -106,11 +106,17 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(157, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(
+            157,
+            part1(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
+        );
     }
 
     #[test]
     fn example2() {
-        assert_eq!(70, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(
+            70,
+            part2(&parse(&SAMPLE.lines().collect::<Vec<_>>()).unwrap()).unwrap()
+        );
     }
 }
