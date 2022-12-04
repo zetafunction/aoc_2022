@@ -20,6 +20,7 @@ use std::str::FromStr;
 struct Rucksack {
     compartment_one: HashMap<char, u32>,
     compartment_two: HashMap<char, u32>,
+    contents: HashSet<char>,
 }
 
 impl FromStr for Rucksack {
@@ -28,12 +29,15 @@ impl FromStr for Rucksack {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (first_str, second_str) = s.split_at(s.len() / 2);
 
+        let mut contents = HashSet::new();
+
         let mut first_compartment = HashMap::new();
         for c in first_str.chars() {
             first_compartment
                 .entry(c)
                 .and_modify(|x| *x += 1)
                 .or_insert(1);
+            contents.insert(c);
         }
 
         let mut second_compartment = HashMap::new();
@@ -42,11 +46,13 @@ impl FromStr for Rucksack {
                 .entry(c)
                 .and_modify(|x| *x += 1)
                 .or_insert(1);
+            contents.insert(c);
         }
 
         Ok(Rucksack {
             compartment_one: first_compartment,
             compartment_two: second_compartment,
+            contents: contents,
         })
     }
 }
@@ -66,7 +72,6 @@ fn main() {
         .collect();
 
     let mut common_priority_sum = 0;
-
     for rucksack in &rucksacks {
         let compartment_one_items = HashSet::<_>::from_iter(rucksack.compartment_one.keys());
         let compartment_two_items = HashSet::<_>::from_iter(rucksack.compartment_two.keys());
@@ -74,5 +79,24 @@ fn main() {
             common_priority_sum += get_priority(**x).unwrap();
         }
     }
+
+    let mut badge_priority_sum = 0;
+    for i in 0..rucksacks.len() / 3 {
+        let common_items = Vec::<_>::from_iter(
+            HashSet::<char>::from_iter(
+                rucksacks[3 * i]
+                    .contents
+                    .intersection(&rucksacks[3 * i + 1].contents)
+                    .cloned(),
+            )
+            .intersection(&rucksacks[3 * i + 2].contents)
+            .cloned(),
+        );
+        for x in common_items {
+            badge_priority_sum += get_priority(x).unwrap();
+        }
+    }
+
     println!("{}", common_priority_sum);
+    println!("{}", badge_priority_sum);
 }
