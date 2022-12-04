@@ -82,10 +82,10 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
             badge_priorities += get_priority(*x)?;
         }
     }
-    if !chunks.remainder().is_empty() {
-        Err(aoc_2022::oops!("leftover rucksacks"))
-    } else {
+    if chunks.remainder().is_empty() {
         Ok(badge_priorities)
+    } else {
+        Err(aoc_2022::oops!("leftover rucksacks"))
     }
 }
 

@@ -85,25 +85,25 @@ where
         .collect()
 }
 
-fn part1(entities: &[Entity]) -> Result<u32, Oops> {
-    Ok(entities
+fn part1(entities: &[Entity]) -> usize {
+    entities
         .iter()
         .filter(|e| e.first.contains(&e.second) || e.second.contains(&e.first))
-        .count() as u32)
+        .count()
 }
 
-fn part2(entities: &[Entity]) -> Result<u32, Oops> {
-    Ok(entities
+fn part2(entities: &[Entity]) -> usize {
+    entities
         .iter()
         .filter(|e| e.first.overlaps(&e.second) || e.second.overlaps(&e.first))
-        .count() as u32)
+        .count()
 }
 
 fn main() -> Result<(), Oops> {
     let entities = parse(io::stdin().lines().map(|l| l.unwrap()))?;
 
-    println!("{}", part1(&entities)?);
-    println!("{}", part2(&entities)?);
+    println!("{}", part1(&entities));
+    println!("{}", part2(&entities));
 
     Ok(())
 }
@@ -118,16 +118,16 @@ mod tests {
         "5-7,7-9\n",
         "2-8,3-7\n",
         "6-6,4-6\n",
-        "2-6,4-8"
+        "2-6,4-8\n"
     );
 
     #[test]
     fn example1() {
-        assert_eq!(2, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(2, part1(&parse(SAMPLE.lines()).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(4, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(4, part2(&parse(SAMPLE.lines()).unwrap()));
     }
 }

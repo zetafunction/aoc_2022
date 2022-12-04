@@ -78,9 +78,9 @@ impl FromStr for ParsedLine {
 
 fn determine_outcome(x: &ParsedLine) -> Outcome {
     match (x.opponent_shape, x.my_shape) {
-        (HandShape::Rock, HandShape::Paper) => Outcome::Win,
-        (HandShape::Paper, HandShape::Scissors) => Outcome::Win,
-        (HandShape::Scissors, HandShape::Rock) => Outcome::Win,
+        (HandShape::Rock, HandShape::Paper)
+        | (HandShape::Paper, HandShape::Scissors)
+        | (HandShape::Scissors, HandShape::Rock) => Outcome::Win,
         (a, b) if a == b => Outcome::Draw,
         _ => Outcome::Loss,
     }

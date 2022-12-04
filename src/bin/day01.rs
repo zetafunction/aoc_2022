@@ -21,7 +21,7 @@ struct Elf {
 }
 
 impl Elf {
-    fn new(rations: Vec<u32>) -> Elf {
+    fn new(rations: &[u32]) -> Elf {
         Elf {
             total_rations: rations.iter().sum(),
         }
@@ -34,14 +34,14 @@ fn main() {
     for line in io::stdin().lines() {
         let line = line.unwrap();
         if line.is_empty() {
-            elves.insert(Elf::new(rations));
+            elves.insert(Elf::new(&rations));
             rations = Vec::new();
             continue;
         }
         rations.push(line.parse::<u32>().unwrap());
     }
     if !rations.is_empty() {
-        elves.insert(Elf::new(rations));
+        elves.insert(Elf::new(&rations));
     }
     println!("{}", elves.iter().last().unwrap().total_rations);
     println!(
