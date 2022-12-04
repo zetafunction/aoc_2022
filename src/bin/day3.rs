@@ -13,10 +13,33 @@
 //  limitations under the License.
 
 use std::collections::HashSet;
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::io;
 use std::str::FromStr;
 
-type Error = &'static str;
+#[derive(Debug)]
+struct Oops {
+    message: String,
+}
+
+impl Oops {
+    fn new(message: &str) -> Box<Oops> {
+        Box::new(Oops {
+            message: message.to_string(),
+        })
+    }
+}
+
+impl Display for Oops {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.message)?;
+        Ok(())
+    }
+}
+
+impl Error for Oops {}
 
 struct Rucksack {
     compartment_one: HashSet<char>,
@@ -25,7 +48,7 @@ struct Rucksack {
 }
 
 impl FromStr for Rucksack {
-    type Err = Error;
+    type Err = Box<dyn Error>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (first_str, second_str) = s.split_at(s.len() / 2);
@@ -40,18 +63,18 @@ impl FromStr for Rucksack {
     }
 }
 
-fn get_priority(c: char) -> Result<u32, Error> {
+fn get_priority(c: char) -> Result<u32, Box<dyn Error>> {
     match c {
         'a'..='z' => Ok(c as u32 - 'a' as u32 + 1),
         'A'..='Z' => Ok(c as u32 - 'A' as u32 + 27),
-        _ => Err("invalid item"),
+        _ => Err(Oops::new("invalid item")),
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let rucksacks = io::stdin()
         .lines()
-        .map(|x| x.unwrap().parse::<Rucksack>())
+        .map(|x| x?.parse::<Rucksack>())
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut item_priorities = 0;
