@@ -14,7 +14,7 @@
 
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
-use std::io::{self, Read};
+use std::io;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -78,10 +78,10 @@ fn get_priority(c: char) -> Result<u32, Oops> {
     }
 }
 
-fn parse(input: &str) -> Result<Vec<Rucksack>, Oops> {
-    input
-        .lines()
-        .map(|x| x.trim().parse::<Rucksack>())
+fn parse<T: AsRef<str>>(lines: &[T]) -> Result<Vec<Rucksack>, Oops> {
+    lines
+        .iter()
+        .map(|x| x.as_ref().trim().parse::<Rucksack>())
         .collect()
 }
 
@@ -116,9 +116,7 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
 }
 
 fn main() -> Result<(), Oops> {
-    let mut input = String::new();
-    io::stdin().read_to_string(&mut input)?;
-    let rucksacks = parse(&input)?;
+    let rucksacks = parse(&io::stdin().lines().collect::<Result<Vec<_>, _>>()?)?;
 
     println!("{}", part1(&rucksacks)?);
     println!("{}", part2(&rucksacks)?);
@@ -139,11 +137,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(157, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(157, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(70, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(70, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
     }
 }
