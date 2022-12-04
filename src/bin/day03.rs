@@ -79,21 +79,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut item_priorities = 0;
     for rucksack in &rucksacks {
-        for x in rucksack
+        let common_items = rucksack
             .compartment_one
-            .intersection(&rucksack.compartment_two)
-        {
+            .intersection(&rucksack.compartment_two);
+        for x in common_items {
             item_priorities += get_priority(*x)?;
         }
     }
 
     let mut badge_priorities = 0;
-    for i in 0..rucksacks.len() / 3 {
-        let common_items = rucksacks[3 * i]
-            .contents
-            .iter()
-            .filter(|x| rucksacks[3 * i + 1].contents.contains(x))
-            .filter(|x| rucksacks[3 * i + 2].contents.contains(x));
+    let chunks = rucksacks.chunks_exact(3);
+    for group in chunks {
+        let (x, y, z) = (&group[0].contents, &group[1].contents, &group[2].contents);
+        let common_items = x.iter().filter(|x| y.contains(x)).filter(|x| z.contains(x));
         for x in common_items {
             badge_priorities += get_priority(*x)?;
         }
