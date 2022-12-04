@@ -38,16 +38,14 @@ impl FromStr for Range {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split('-');
-        Ok(Range {
-            low: parts
-                .next()
-                .ok_or_else(|| aoc_2022::oops!("no part"))?
-                .parse::<u32>()?,
-            high: parts
-                .next()
-                .ok_or_else(|| aoc_2022::oops!("no part"))?
-                .parse::<u32>()?,
-        })
+        if let (Some(first), Some(second)) = (parts.next(), parts.next()) {
+            Ok(Range {
+                low: first.parse::<u32>()?,
+                high: second.parse::<u32>()?,
+            })
+        } else {
+            Err(aoc_2022::oops!("not enough parts for Range"))
+        }
     }
 }
 
@@ -61,16 +59,14 @@ impl FromStr for Entity {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split(',');
-        Ok(Entity {
-            first: parts
-                .next()
-                .ok_or_else(|| aoc_2022::oops!("no part"))?
-                .parse::<Range>()?,
-            second: parts
-                .next()
-                .ok_or_else(|| aoc_2022::oops!("no part"))?
-                .parse::<Range>()?,
-        })
+        if let (Some(first), Some(second)) = (parts.next(), parts.next()) {
+            Ok(Entity {
+                first: first.parse::<Range>()?,
+                second: second.parse::<Range>()?,
+            })
+        } else {
+            Err(aoc_2022::oops!("not enough parts for assignment pairs"))
+        }
     }
 }
 
