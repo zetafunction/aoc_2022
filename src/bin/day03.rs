@@ -21,26 +21,35 @@ use std::io::Read;
 use std::str::FromStr;
 
 #[derive(Debug)]
-struct Oops {
-    message: String,
-}
-
-impl Oops {
-    fn new(message: &str) -> Box<Oops> {
-        Box::new(Oops {
-            message: message.to_string(),
-        })
-    }
+enum Oops {
+    Message(String),
+    RealError(Box<dyn Error>),
 }
 
 impl Display for Oops {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self.message)?;
+        match self {
+            Oops::Message(s) => write!(f, "oops: {}", s)?,
+            Oops::RealError(e) => e.fmt(f)?,
+        }
         Ok(())
     }
 }
 
-impl Error for Oops {}
+impl<E> From<E> for Oops
+where
+    E: std::error::Error + 'static,
+{
+    fn from(error: E) -> Self {
+        Oops::RealError(Box::new(error))
+    }
+}
+
+macro_rules! oops {
+    ($e:expr) => {
+        Oops::Message($e.to_string())
+    };
+}
 
 struct Rucksack {
     compartment_one: HashSet<char>,
@@ -49,7 +58,7 @@ struct Rucksack {
 }
 
 impl FromStr for Rucksack {
-    type Err = Box<dyn Error>;
+    type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (first_str, second_str) = s.split_at(s.len() / 2);
@@ -64,22 +73,22 @@ impl FromStr for Rucksack {
     }
 }
 
-fn get_priority(c: char) -> Result<u32, Box<dyn Error>> {
+fn get_priority(c: char) -> Result<u32, Oops> {
     match c {
         'a'..='z' => Ok(c as u32 - 'a' as u32 + 1),
         'A'..='Z' => Ok(c as u32 - 'A' as u32 + 27),
-        _ => Err(Oops::new("invalid item")),
+        _ => Err(oops!("invalid item")),
     }
 }
 
-fn parse(input: &str) -> Result<Vec<Rucksack>, Box<dyn Error>> {
+fn parse(input: &str) -> Result<Vec<Rucksack>, Oops> {
     input
         .lines()
         .map(|x| x.trim().parse::<Rucksack>())
         .collect()
 }
 
-fn part1(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
+fn part1(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
     let mut item_priorities = 0;
     for rucksack in rucksacks {
         let common_items = rucksack
@@ -92,7 +101,7 @@ fn part1(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
     Ok(item_priorities)
 }
 
-fn part2(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
+fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
     let mut badge_priorities = 0;
     let mut chunks = rucksacks.chunks_exact(3);
     for group in &mut chunks {
@@ -103,13 +112,13 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Box<dyn Error>> {
         }
     }
     if chunks.remainder().len() > 0 {
-        Err(Oops::new("leftover rucksacks"))
+        Err(oops!("leftover rucksacks"))
     } else {
         Ok(badge_priorities)
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Oops> {
     let mut input = String::new();
     io::stdin().read_to_string(&mut input)?;
     let rucksacks = parse(&input)?;
