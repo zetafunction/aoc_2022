@@ -12,41 +12,10 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+use aoc_2022::oops::Oops;
 use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use std::io;
 use std::str::FromStr;
-
-#[derive(Debug)]
-enum Oops {
-    Message(String),
-    RealError(Box<dyn std::error::Error>),
-}
-
-impl Display for Oops {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        match self {
-            Oops::Message(s) => write!(f, "oops: {}", s)?,
-            Oops::RealError(e) => e.fmt(f)?,
-        }
-        Ok(())
-    }
-}
-
-impl<E> From<E> for Oops
-where
-    E: std::error::Error + 'static,
-{
-    fn from(error: E) -> Self {
-        Oops::RealError(Box::new(error))
-    }
-}
-
-macro_rules! oops {
-    ($($e:expr),*) => {
-        Oops::Message(format!($($e,)*))
-    };
-}
 
 struct Rucksack {
     compartment_one: HashSet<char>,
@@ -74,7 +43,7 @@ fn get_priority(c: char) -> Result<u32, Oops> {
     match c {
         'a'..='z' => Ok(c as u32 - 'a' as u32 + 1),
         'A'..='Z' => Ok(c as u32 - 'A' as u32 + 27),
-        _ => Err(oops!("invalid item")),
+        _ => Err(aoc_2022::oops!("invalid item")),
     }
 }
 
@@ -109,7 +78,7 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
         }
     }
     if !chunks.remainder().is_empty() {
-        Err(oops!("leftover rucksacks"))
+        Err(aoc_2022::oops!("leftover rucksacks"))
     } else {
         Ok(badge_priorities)
     }
