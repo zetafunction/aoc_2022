@@ -12,91 +12,72 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 use std::str::FromStr;
 
+type Error = &'static str;
+
 struct Rucksack {
-    compartment_one: HashMap<char, u32>,
-    compartment_two: HashMap<char, u32>,
+    compartment_one: HashSet<char>,
+    compartment_two: HashSet<char>,
     contents: HashSet<char>,
 }
 
 impl FromStr for Rucksack {
-    type Err = &'static str;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (first_str, second_str) = s.split_at(s.len() / 2);
-
-        let mut contents = HashSet::new();
-
-        let mut first_compartment = HashMap::new();
-        for c in first_str.chars() {
-            first_compartment
-                .entry(c)
-                .and_modify(|x| *x += 1)
-                .or_insert(1);
-            contents.insert(c);
-        }
-
-        let mut second_compartment = HashMap::new();
-        for c in second_str.chars() {
-            second_compartment
-                .entry(c)
-                .and_modify(|x| *x += 1)
-                .or_insert(1);
-            contents.insert(c);
-        }
-
+        let compartment_one = first_str.chars().collect();
+        let compartment_two = second_str.chars().collect();
+        let contents = s.chars().collect();
         Ok(Rucksack {
-            compartment_one: first_compartment,
-            compartment_two: second_compartment,
-            contents: contents,
+            compartment_one,
+            compartment_two,
+            contents,
         })
     }
 }
 
-fn get_priority(c: char) -> Option<u32> {
+fn get_priority(c: char) -> Result<u32, Error> {
     match c {
-        'a'..='z' => Some(c as u32 - 'a' as u32 + 1),
-        'A'..='Z' => Some(c as u32 - 'A' as u32 + 27),
-        _ => None,
+        'a'..='z' => Ok(c as u32 - 'a' as u32 + 1),
+        'A'..='Z' => Ok(c as u32 - 'A' as u32 + 27),
+        _ => Err("invalid item"),
     }
 }
 
-fn main() {
-    let rucksacks: Vec<_> = io::stdin()
+fn main() -> Result<(), Error> {
+    let rucksacks = io::stdin()
         .lines()
-        .map(|l| l.unwrap().parse::<Rucksack>().unwrap())
-        .collect();
+        .map(|x| x.unwrap().parse::<Rucksack>())
+        .collect::<Result<Vec<_>, _>>()?;
 
-    let mut common_priority_sum = 0;
+    let mut item_priorities = 0;
     for rucksack in &rucksacks {
-        let compartment_one_items = HashSet::<_>::from_iter(rucksack.compartment_one.keys());
-        let compartment_two_items = HashSet::<_>::from_iter(rucksack.compartment_two.keys());
-        for x in compartment_one_items.intersection(&compartment_two_items) {
-            common_priority_sum += get_priority(**x).unwrap();
+        for x in rucksack
+            .compartment_one
+            .intersection(&rucksack.compartment_two)
+        {
+            item_priorities += get_priority(*x)?;
         }
     }
 
-    let mut badge_priority_sum = 0;
+    let mut badge_priorities = 0;
     for i in 0..rucksacks.len() / 3 {
-        let common_items = Vec::<_>::from_iter(
-            HashSet::<char>::from_iter(
-                rucksacks[3 * i]
-                    .contents
-                    .intersection(&rucksacks[3 * i + 1].contents)
-                    .cloned(),
-            )
-            .intersection(&rucksacks[3 * i + 2].contents)
-            .cloned(),
-        );
+        let common_items = rucksacks[3 * i]
+            .contents
+            .iter()
+            .filter(|x| rucksacks[3 * i + 1].contents.contains(x))
+            .filter(|x| rucksacks[3 * i + 2].contents.contains(x));
         for x in common_items {
-            badge_priority_sum += get_priority(x).unwrap();
+            badge_priorities += get_priority(*x)?;
         }
     }
 
-    println!("{}", common_priority_sum);
-    println!("{}", badge_priority_sum);
+    println!("{}", item_priorities);
+    println!("{}", badge_priorities);
+
+    Ok(())
 }
