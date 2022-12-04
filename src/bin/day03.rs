@@ -43,8 +43,8 @@ where
 }
 
 macro_rules! oops {
-    ($e:expr) => {
-        Oops::Message($e.to_string())
+    ($($e:expr),*) => {
+        Oops::Message(format!($($e,)*))
     };
 }
 
