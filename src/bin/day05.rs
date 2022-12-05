@@ -76,7 +76,7 @@ where
         .unwrap();
 
     let mut stacks: Vec<Stack> = Vec::new();
-    stacks.resize_with(stack_count, || Stack::new());
+    stacks.resize_with(stack_count, Stack::new);
 
     // Now parse the crate stacks. Scan for alphanumerics; dividing the index by 4 yields the stack
     // index (0-based). Iterate in reverse to build the stack from the bottom up.
@@ -97,7 +97,7 @@ where
     Ok(Entity { stacks, moves })
 }
 
-fn part1(e: &Entity) -> Result<String, Oops> {
+fn part1(e: &Entity) -> String {
     let mut new_stacks = e.stacks.clone();
     for m in &e.moves {
         let src = &mut new_stacks[m.src - 1].crates;
@@ -105,13 +105,13 @@ fn part1(e: &Entity) -> Result<String, Oops> {
         new_stacks[m.dst - 1].crates.append(&mut moved_crates);
     }
 
-    Ok(new_stacks
+    new_stacks
         .iter()
         .map(|s| *s.crates.last().unwrap())
-        .collect())
+        .collect()
 }
 
-fn part2(e: &Entity) -> Result<String, Oops> {
+fn part2(e: &Entity) -> String {
     let mut new_stacks = e.stacks.clone();
     for m in &e.moves {
         let src = &mut new_stacks[m.src - 1].crates;
@@ -119,17 +119,17 @@ fn part2(e: &Entity) -> Result<String, Oops> {
         new_stacks[m.dst - 1].crates.append(&mut moved_crates);
     }
 
-    Ok(new_stacks
+    new_stacks
         .iter()
         .map(|s| *s.crates.last().unwrap())
-        .collect())
+        .collect()
 }
 
 fn main() -> Result<(), Oops> {
     let entity = parse(io::stdin().lines().map(|l| l.unwrap()))?;
 
-    println!("{}", part1(&entity)?);
-    println!("{}", part2(&entity)?);
+    println!("{}", part1(&entity));
+    println!("{}", part2(&entity));
 
     Ok(())
 }
@@ -152,11 +152,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!("CMZ", part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!("CMZ", part1(&parse(SAMPLE.lines()).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!("MCD", part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!("MCD", part2(&parse(SAMPLE.lines()).unwrap()));
     }
 }
