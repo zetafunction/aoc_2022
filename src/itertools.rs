@@ -112,4 +112,22 @@ mod tests {
         assert_eq!(group.into_iter().copied().collect::<Vec<_>>(), &[2]);
         assert_eq!(None, group_iter.next());
     }
+
+    #[test]
+    fn segment_marker_at_first() {
+        let v: Vec<u32> = vec![0, 1];
+        let mut group_iter = v.iter().segment(|x| **x == 0);
+        let group = group_iter.next().unwrap();
+        assert_eq!(group.into_iter().copied().collect::<Vec<_>>(), &[1]);
+        assert_eq!(None, group_iter.next());
+    }
+
+    #[test]
+    fn segment_marker_at_last() {
+        let v: Vec<u32> = vec![1, 0];
+        let mut group_iter = v.iter().segment(|x| **x == 0);
+        let group = group_iter.next().unwrap();
+        assert_eq!(group.into_iter().copied().collect::<Vec<_>>(), &[1]);
+        assert_eq!(None, group_iter.next());
+    }
 }
