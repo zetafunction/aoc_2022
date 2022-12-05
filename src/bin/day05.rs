@@ -30,7 +30,7 @@ impl Stack {
 
 #[derive(Debug)]
 struct Move {
-    count: u32,
+    count: usize,
     src: usize,
     dst: usize,
 }
@@ -41,9 +41,9 @@ impl FromStr for Move {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // move <count> from <src> to <dst>
         let mut splitter = s.split_whitespace().skip(1).step_by(2);
-        let count = splitter.next().unwrap().parse::<u32>()?;
-        let src = splitter.next().unwrap().parse::<usize>()?;
-        let dst = splitter.next().unwrap().parse::<usize>()?;
+        let count = splitter.next().unwrap().parse()?;
+        let src = splitter.next().unwrap().parse()?;
+        let dst = splitter.next().unwrap().parse()?;
         Ok(Move { count, src, dst })
     }
 }
@@ -82,7 +82,7 @@ where
     // index (0-based). Iterate in reverse to build the stack from the bottom up.
     for line in crate_lines.iter().rev() {
         // Another approach is to use chunks() rather than scanning for the alphabetic characters.
-        for (i, c) in line.chars().enumerate() {
+        for (i, c) in line.char_indices() {
             if c.is_alphabetic() {
                 stacks[i / 4].crates.push(c);
             }
@@ -100,10 +100,9 @@ where
 fn part1(e: &Entity) -> Result<String, Oops> {
     let mut new_stacks = e.stacks.clone();
     for m in &e.moves {
-        for _ in 0..m.count {
-            let moved = new_stacks[m.src - 1].crates.pop().unwrap();
-            new_stacks[m.dst - 1].crates.push(moved);
-        }
+        let src = &mut new_stacks[m.src - 1].crates;
+        let mut moved_crates = src.drain(src.len() - m.count..).rev().collect();
+        new_stacks[m.dst - 1].crates.append(&mut moved_crates);
     }
 
     Ok(new_stacks
@@ -115,13 +114,9 @@ fn part1(e: &Entity) -> Result<String, Oops> {
 fn part2(e: &Entity) -> Result<String, Oops> {
     let mut new_stacks = e.stacks.clone();
     for m in &e.moves {
-        let mut moved_crates = Vec::new();
-        for _ in 0..m.count {
-            moved_crates.push(new_stacks[m.src - 1].crates.pop().unwrap())
-        }
-        for c in moved_crates.iter().rev() {
-            new_stacks[m.dst - 1].crates.push(*c);
-        }
+        let src = &mut new_stacks[m.src - 1].crates;
+        let mut moved_crates = src.drain(src.len() - m.count..).collect();
+        new_stacks[m.dst - 1].crates.append(&mut moved_crates);
     }
 
     Ok(new_stacks
