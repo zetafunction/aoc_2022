@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
-use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::io;
 use std::str::FromStr;
@@ -51,11 +50,11 @@ fn get_priority(c: char) -> Result<u32, Oops> {
 fn parse<I>(lines: I) -> Result<Vec<Rucksack>, Oops>
 where
     I: IntoIterator,
-    I::Item: Borrow<str>,
+    I::Item: AsRef<str>,
 {
     lines
         .into_iter()
-        .map(|x| x.borrow().trim().parse::<Rucksack>())
+        .map(|x| x.as_ref().trim().parse::<Rucksack>())
         .collect()
 }
 

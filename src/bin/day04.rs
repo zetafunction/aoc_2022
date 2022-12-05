@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
-use std::borrow::Borrow;
 use std::io;
 use std::str::FromStr;
 
@@ -72,11 +71,11 @@ impl FromStr for Entity {
 fn parse<I>(lines: I) -> Result<Vec<Entity>, Oops>
 where
     I: IntoIterator,
-    I::Item: Borrow<str>,
+    I::Item: AsRef<str>,
 {
     lines
         .into_iter()
-        .map(|x| x.borrow().trim().parse())
+        .map(|x| x.as_ref().trim().parse())
         .collect()
 }
 

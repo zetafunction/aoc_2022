@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
-use std::borrow::Borrow;
 use std::io;
 use std::str::FromStr;
 
@@ -56,9 +55,9 @@ struct Entity {
 fn parse<I>(lines: I) -> Result<Entity, Oops>
 where
     I: IntoIterator,
-    I::Item: Borrow<str>,
+    I::Item: AsRef<str>,
 {
-    let lines: Vec<String> = lines.into_iter().map(|l| l.borrow().to_string()).collect();
+    let lines: Vec<String> = lines.into_iter().map(|l| l.as_ref().to_string()).collect();
 
     // The blank line delimits the crate stack diagram and the move list.
     let split_idx = lines.iter().take_while(|l| !l.is_empty()).count();
