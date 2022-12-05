@@ -12,6 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+use aoc_2022::itertools::IterTools;
 use std::{collections::BTreeSet, io};
 
 // Would be nice if rustfmt sorted this...
@@ -21,28 +22,24 @@ struct Elf {
 }
 
 impl Elf {
-    fn new(rations: &[u32]) -> Elf {
-        Elf {
-            total_rations: rations.iter().sum(),
-        }
+    fn new(total_rations: u32) -> Elf {
+        Elf { total_rations }
     }
 }
 
 fn main() {
-    let mut elves = BTreeSet::new();
-    let mut rations = Vec::new();
-    for line in io::stdin().lines() {
-        let line = line.unwrap();
-        if line.is_empty() {
-            elves.insert(Elf::new(&rations));
-            rations = Vec::new();
-            continue;
-        }
-        rations.push(line.parse::<u32>().unwrap());
-    }
-    if !rations.is_empty() {
-        elves.insert(Elf::new(&rations));
-    }
+    let elves: BTreeSet<Elf> = io::stdin()
+        .lines()
+        .segment(|line| line.as_ref().unwrap().is_empty())
+        .map(|group| {
+            Elf::new(
+                group
+                    .iter()
+                    .map(|line| line.as_ref().unwrap().parse::<u32>().unwrap())
+                    .sum(),
+            )
+        })
+        .collect();
     println!("{}", elves.iter().last().unwrap().total_rations);
     println!(
         "{}",
