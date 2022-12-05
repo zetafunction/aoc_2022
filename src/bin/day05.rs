@@ -84,12 +84,9 @@ where
             }
         }
     }
-    stacks = stacks
-        .iter()
-        .map(|s| Stack {
-            value: s.value.iter().rev().copied().collect(),
-        })
-        .collect();
+    for stack in &mut stacks {
+        stack.value.reverse();
+    }
 
     let mut moves: Vec<Move> = Vec::new();
     for line in &lines[split_idx..] {
@@ -121,7 +118,8 @@ fn part2(e: &Entity) -> Result<String, Oops> {
         for _ in 0..m.count {
             moved_crates.push(new_stacks[m.src - 1].value.pop().unwrap())
         }
-        for c in moved_crates.iter().rev().copied() {
+        moved_crates.reverse();
+        for c in moved_crates {
             new_stacks[m.dst - 1].value.push(c);
         }
     }
