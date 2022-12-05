@@ -19,12 +19,12 @@ use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 struct Stack {
-    value: Vec<char>,
+    crates: Vec<char>,
 }
 
 impl Stack {
     fn new() -> Stack {
-        Stack { value: Vec::new() }
+        Stack { crates: Vec::new() }
     }
 }
 
@@ -39,13 +39,11 @@ impl FromStr for Move {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut splitter = s.split_whitespace();
-        splitter.next();
-        let count = splitter.next().unwrap().parse::<u32>().unwrap();
-        splitter.next();
-        let src = splitter.next().unwrap().parse::<usize>().unwrap();
-        splitter.next();
-        let dst = splitter.next().unwrap().parse::<usize>().unwrap();
+        // move <count> from <src> to <dst>
+        let mut splitter = s.split_whitespace().skip(1).step_by(2);
+        let count = splitter.next().unwrap().parse::<u32>()?;
+        let src = splitter.next().unwrap().parse::<usize>()?;
+        let dst = splitter.next().unwrap().parse::<usize>()?;
         Ok(Move { count, src, dst })
     }
 }
@@ -61,37 +59,40 @@ where
     I::Item: Borrow<str>,
 {
     let lines: Vec<String> = lines.into_iter().map(|l| l.borrow().to_string()).collect();
-    let mut split_idx = 0;
-    for line in &lines {
-        split_idx += 1;
-        if line.is_empty() {
-            break;
-        }
-    }
 
-    let mut max_col: usize = 0;
-    for num in lines[split_idx - 2].trim().split_whitespace() {
-        max_col = num.parse::<usize>().unwrap()
-    }
+    // The blank line delimits the crate stack diagram and the move list.
+    let split_idx = lines.iter().take_while(|l| !l.is_empty()).count();
+
+    let crate_lines = &lines[..split_idx - 1];
+    let move_lines = &lines[split_idx + 1..];
+
+    // The last number on lines[split_idx - 1] is the number of crate stacks.
+    let stack_count = lines[split_idx - 1]
+        .split_whitespace()
+        .rev()
+        .next()
+        .unwrap()
+        .parse()
+        .unwrap();
+
     let mut stacks: Vec<Stack> = Vec::new();
-    stacks.resize_with(max_col, || Stack::new());
-    for line in &lines[..split_idx - 2] {
-        let mut idx = 0;
-        for c in line.chars() {
-            idx += 1;
+    stacks.resize_with(stack_count, || Stack::new());
+
+    // Now parse the crate stacks. Scan for alphanumerics; dividing the index by 4 yields the stack
+    // index (0-based). Iterate in reverse to build the stack from the bottom up.
+    for line in crate_lines.iter().rev() {
+        // Another approach is to use chunks() rather than scanning for the alphabetic characters.
+        for (i, c) in line.chars().enumerate() {
             if c.is_alphabetic() {
-                stacks[idx / 4].value.push(c);
+                stacks[i / 4].crates.push(c);
             }
         }
     }
-    for stack in &mut stacks {
-        stack.value.reverse();
-    }
 
-    let mut moves: Vec<Move> = Vec::new();
-    for line in &lines[split_idx..] {
-        moves.push(line.parse::<Move>()?)
-    }
+    let moves = move_lines
+        .iter()
+        .map(|line| line.parse::<Move>())
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok(Entity { stacks, moves })
 }
@@ -100,14 +101,14 @@ fn part1(e: &Entity) -> Result<String, Oops> {
     let mut new_stacks = e.stacks.clone();
     for m in &e.moves {
         for _ in 0..m.count {
-            let moved = new_stacks[m.src - 1].value.pop().unwrap();
-            new_stacks[m.dst - 1].value.push(moved);
+            let moved = new_stacks[m.src - 1].crates.pop().unwrap();
+            new_stacks[m.dst - 1].crates.push(moved);
         }
     }
 
     Ok(new_stacks
         .iter()
-        .map(|s| *s.value.last().unwrap())
+        .map(|s| *s.crates.last().unwrap())
         .collect())
 }
 
@@ -116,17 +117,16 @@ fn part2(e: &Entity) -> Result<String, Oops> {
     for m in &e.moves {
         let mut moved_crates = Vec::new();
         for _ in 0..m.count {
-            moved_crates.push(new_stacks[m.src - 1].value.pop().unwrap())
+            moved_crates.push(new_stacks[m.src - 1].crates.pop().unwrap())
         }
-        moved_crates.reverse();
-        for c in moved_crates {
-            new_stacks[m.dst - 1].value.push(c);
+        for c in moved_crates.iter().rev() {
+            new_stacks[m.dst - 1].crates.push(*c);
         }
     }
 
     Ok(new_stacks
         .iter()
-        .map(|s| *s.value.last().unwrap())
+        .map(|s| *s.crates.last().unwrap())
         .collect())
 }
 
@@ -143,15 +143,17 @@ fn main() -> Result<(), Oops> {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = r#"    [D]    
-[N] [C]    
-[Z] [M] [P]
- 1   2   3 
-
-move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2"#;
+    const SAMPLE: &str = concat!(
+        "    [D]    \n",
+        "[N] [C]    \n",
+        "[Z] [M] [P]\n",
+        " 1   2   3 \n",
+        "\n",
+        "move 1 from 2 to 1\n",
+        "move 3 from 1 to 3\n",
+        "move 2 from 2 to 1\n",
+        "move 1 from 1 to 2\n",
+    );
 
     #[test]
     fn example1() {
