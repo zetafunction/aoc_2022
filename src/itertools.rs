@@ -30,9 +30,8 @@ where
                 if (self.predicate)(&item) {
                     if items.is_empty() {
                         continue;
-                    } else {
-                        return Some(items);
                     }
+                    return Some(items);
                 }
                 items.push(item);
             } else if items.is_empty() {
