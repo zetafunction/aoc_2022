@@ -13,38 +13,41 @@
 //  limitations under the License.
 
 use aoc_2022::oops::Oops;
-use std::collections::HashSet;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::io;
 
-fn part1(s: &str) -> Result<usize, Oops> {
-    let mut recent: VecDeque<char> = VecDeque::new();
+fn get_chars_to_n_unique(s: &str, window_size: usize) -> Result<usize, Oops> {
+    let mut window = VecDeque::<char>::new();
+    let mut active = HashMap::<char, u32>::new();
     for (i, c) in s.chars().enumerate() {
-        recent.push_back(c);
-        if recent.len() > 3 {
-            let u: HashSet<char> = recent.iter().copied().collect();
-            if u.len() == 4 {
+        window.push_back(c);
+        active.entry(c).and_modify(|count| *count += 1).or_insert(1);
+        if window.len() == window_size {
+            if active.len() == window_size {
                 return Ok(i + 1);
             }
-            recent.pop_front();
+            match active.entry(window.pop_front().unwrap()) {
+                Entry::Occupied(mut e) => {
+                    *e.get_mut() -= 1;
+                    if *e.get() == 0 {
+                        e.remove_entry();
+                    }
+                }
+                Entry::Vacant(_) => return Err(aoc_2022::oops!("invalid state")),
+            }
         }
     }
     Err(aoc_2022::oops!("no answer"))
 }
 
+fn part1(s: &str) -> Result<usize, Oops> {
+    get_chars_to_n_unique(s, 4)
+}
+
 fn part2(s: &str) -> Result<usize, Oops> {
-    let mut recent: VecDeque<char> = VecDeque::new();
-    for (i, c) in s.chars().enumerate() {
-        recent.push_back(c);
-        if recent.len() > 13 {
-            let u: HashSet<char> = recent.iter().copied().collect();
-            if u.len() == 14 {
-                return Ok(i + 1);
-            }
-            recent.pop_front();
-        }
-    }
-    Err(aoc_2022::oops!("no answer"))
+    get_chars_to_n_unique(s, 14)
 }
 
 fn main() -> Result<(), Oops> {
