@@ -81,10 +81,8 @@ where
     // index (0-based). Iterate in reverse to build the stack from the bottom up.
     for line in crate_lines.iter().rev() {
         // Another approach is to use chunks() rather than scanning for the alphabetic characters.
-        for (i, c) in line.char_indices() {
-            if c.is_alphabetic() {
-                stacks[i / 4].crates.push(c);
-            }
+        for (i, c) in line.char_indices().filter(|(_, c)| c.is_alphabetic()) {
+            stacks[i / 4].crates.push(c);
         }
     }
 
