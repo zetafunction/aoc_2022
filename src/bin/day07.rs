@@ -63,7 +63,7 @@ impl FromStr for Entity {
         let mut current_depth: usize = 0;
         for cmd_and_output in s.split('$').map(|x| x.trim()).filter(|x| !x.is_empty()) {
             let (cmd, remainder) = cmd_and_output
-                .split_once(' ')
+                .split_once(&[' ', '\n'])
                 .ok_or_else(|| oops!("bad input"))?;
             match cmd {
                 "cd" => match remainder {
