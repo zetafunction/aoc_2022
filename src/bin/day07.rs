@@ -62,14 +62,9 @@ impl FromStr for Entity {
         let mut entries = Vec::new();
         let mut current_depth: usize = 0;
         let mut lines = s.lines();
-        loop {
-            let l = lines.next();
-            if l.is_none() {
-                break;
-            }
-            let l = l.unwrap();
-            if l.starts_with('$') {
-                let mut cmd = l.split_whitespace().skip(1);
+        while let Some(line) = lines.next() {
+            if line.starts_with('$') {
+                let mut cmd = line.split_whitespace().skip(1);
                 let verb = cmd.next().unwrap();
                 if verb == "cd" {
                     let arg = cmd.next().unwrap();
@@ -83,10 +78,10 @@ impl FromStr for Entity {
                         current_depth += 1;
                     }
                 }
-            } else if l.starts_with("dir") {
+            } else if line.starts_with("dir") {
                 continue;
             } else {
-                let mut file_info = l.split_whitespace();
+                let mut file_info = line.split_whitespace();
                 let size = file_info.next().unwrap().parse()?;
                 entries.push(Entry {
                     depth: current_depth,
