@@ -12,12 +12,12 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-use aoc_2022::oops::Oops;
-use std::io;
+use aoc_2022::{oops, oops::Oops};
+use std::io::{self, Read};
 use std::str::FromStr;
 
 struct Entity {
-    value: u32,
+    values: Vec<usize>,
 }
 
 impl FromStr for Entity {
@@ -25,39 +25,40 @@ impl FromStr for Entity {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Entity {
-            value: s.parse::<u32>()?,
+            values: s
+                .lines()
+                .map(|s| s.parse::<usize>())
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 }
 
-fn parse<I>(lines: I) -> Result<Vec<Entity>, Oops>
-where
-    I: IntoIterator,
-    I::Item: AsRef<str>,
-{
-    lines
-        .into_iter()
-        .map(|x| x.as_ref().trim().parse())
-        .collect()
+fn parse(input: &str) -> Result<Entity, Oops> {
+    input.parse()
 }
 
-fn part1(entities: &[Entity]) -> Result<u32, Oops> {
-    Ok(entities.iter().map(|x| x.value).sum())
+fn part1(entity: &Entity) -> Result<usize, Oops> {
+    Ok(entity.values.iter().sum())
 }
 
-fn part2(entities: &[Entity]) -> Result<u32, Oops> {
-    entities
+fn part2(entity: &Entity) -> Result<usize, Oops> {
+    entity
+        .values
         .iter()
-        .map(|x| x.value)
         .max()
-        .ok_or_else(|| aoc_2022::oops!("no entities"))
+        .ok_or_else(|| oops!("no entities"))
+        .copied()
 }
 
 fn main() -> Result<(), Oops> {
-    let entities = parse(io::stdin().lines().map(|l| l.unwrap()))?;
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input)?;
+    let input = input;
 
-    println!("{}", part1(&entities)?);
-    println!("{}", part2(&entities)?);
+    let entity = parse(&input)?;
+
+    println!("{}", part1(&entity)?);
+    println!("{}", part2(&entity)?);
 
     Ok(())
 }
@@ -66,17 +67,22 @@ fn main() -> Result<(), Oops> {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = r#"1
-    2
-    3"#;
+    const SAMPLE: &str = concat!(
+        // First line!
+        "123456789\n",
+        // Second line!
+        "987654321\n",
+        // Third line!
+        "2468013579\n"
+    );
 
     #[test]
     fn example1() {
-        assert_eq!(6, part1(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(3579124689, part1(&parse(SAMPLE).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(3, part2(&parse(SAMPLE.lines()).unwrap()).unwrap());
+        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
