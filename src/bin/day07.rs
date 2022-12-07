@@ -41,10 +41,7 @@ impl Entity {
                 result.push(current_sizes.pop().ok_or_else(|| oops!("bad input"))?);
             }
             match e.info {
-                Info::Directory => {
-                    current_sizes.push(0);
-                    ()
-                }
+                Info::Directory => current_sizes.push(0),
                 Info::File(size) => {
                     for dir_size in &mut current_sizes {
                         *dir_size += size;
@@ -116,11 +113,12 @@ fn part1(entity: &Entity) -> Result<usize, Oops> {
 }
 
 fn part2(entity: &Entity) -> Result<usize, Oops> {
+    const VOLUME_SIZE: usize = 70_000_000;
+    const FREE_SPACE_REQUIRED: usize = 30_000_000;
+
     let directory_sizes = entity.get_directory_sizes()?;
     let root_size = directory_sizes.last().ok_or_else(|| oops!("bad input"))?;
 
-    const VOLUME_SIZE: usize = 70_000_000;
-    const FREE_SPACE_REQUIRED: usize = 30_000_000;
     directory_sizes
         .iter()
         .filter(|x| VOLUME_SIZE - (root_size - **x) >= FREE_SPACE_REQUIRED)
