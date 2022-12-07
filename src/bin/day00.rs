@@ -16,15 +16,15 @@ use aoc_2022::{oops, oops::Oops};
 use std::io::{self, Read};
 use std::str::FromStr;
 
-struct Entity {
+struct Puzzle {
     values: Vec<usize>,
 }
 
-impl FromStr for Entity {
+impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Entity {
+        Ok(Puzzle {
             values: s
                 .lines()
                 .map(|s| s.parse::<usize>())
@@ -33,16 +33,16 @@ impl FromStr for Entity {
     }
 }
 
-fn parse(input: &str) -> Result<Entity, Oops> {
+fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(entity: &Entity) -> Result<usize, Oops> {
-    Ok(entity.values.iter().sum())
+fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
+    Ok(puzzle.values.iter().sum())
 }
 
-fn part2(entity: &Entity) -> Result<usize, Oops> {
-    entity
+fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
+    puzzle
         .values
         .iter()
         .max()
@@ -55,10 +55,10 @@ fn main() -> Result<(), Oops> {
     io::stdin().read_to_string(&mut input)?;
     let input = input;
 
-    let entity = parse(&input)?;
+    let puzzle = parse(&input)?;
 
-    println!("{}", part1(&entity)?);
-    println!("{}", part2(&entity)?);
+    println!("{}", part1(&puzzle)?);
+    println!("{}", part2(&puzzle)?);
 
     Ok(())
 }
