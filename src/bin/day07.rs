@@ -61,32 +61,36 @@ impl FromStr for Entity {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut entries = Vec::new();
         let mut current_depth: usize = 0;
-        let mut lines = s.lines();
-        while let Some(line) = lines.next() {
-            if line.starts_with('$') {
-                let mut cmd = line.split_whitespace().skip(1);
-                let verb = cmd.next().unwrap();
-                if verb == "cd" {
-                    let arg = cmd.next().unwrap();
-                    if arg == ".." {
+        for cmd_and_output in s.split('$').map(|x| x.trim()).filter(|x| !x.is_empty()) {
+            let (cmd, remainder) = cmd_and_output
+                .split_once(' ')
+                .ok_or_else(|| oops!("bad input"))?;
+            match cmd {
+                "cd" => match remainder {
+                    ".." => {
                         current_depth -= 1;
-                    } else {
+                    }
+                    _ => {
                         entries.push(Entry {
                             depth: current_depth,
                             info: Info::Directory,
                         });
                         current_depth += 1;
                     }
+                },
+                "ls" => {
+                    entries.extend(remainder.lines().filter_map(|x| {
+                        let (first, _) = x.split_once(' ')?;
+                        let size = first.parse().ok()?;
+                        Some(Entry {
+                            depth: current_depth,
+                            info: Info::File(size),
+                        })
+                    }));
                 }
-            } else if line.starts_with("dir") {
-                continue;
-            } else {
-                let mut file_info = line.split_whitespace();
-                let size = file_info.next().unwrap().parse()?;
-                entries.push(Entry {
-                    depth: current_depth,
-                    info: Info::File(size),
-                });
+                _ => {
+                    return Err(oops!("unexpected command"));
+                }
             }
         }
         Ok(Entity { values: entries })
