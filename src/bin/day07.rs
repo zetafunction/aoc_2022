@@ -25,34 +25,37 @@ enum Info {
 #[derive(Debug)]
 struct Entry {
     depth: usize,
-    label: String,
     info: Info,
-}
-
-impl FromStr for Entry {
-    type Err = Oops;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        /*
-        println!("{}", s);
-        let depth = s.find('/').unwrap() / 2;
-        let mut pieces = s.split_whitespace();
-        pieces.next(); // Skip the `-`
-        let label = pieces.next().unwrap().to_string();
-        let info = if pieces.next().unwrap() == "(dir)" {
-            Info::Directory
-        } else {
-            let size_as_string = pieces.next().unwrap();
-            let size = size_as_string[5..size_as_string.len() - 2].parse::<usize>()?;
-            Info::File(size)
-        };
-        */
-        Err(oops!("not implemented"))
-    }
 }
 
 struct Entity {
     values: Vec<Entry>,
+}
+
+impl Entity {
+    fn get_directory_sizes(&self) -> Result<Vec<usize>, Oops> {
+        let mut current_sizes = Vec::new();
+        let mut result = Vec::new();
+        for e in &self.values {
+            while e.depth < current_sizes.len() {
+                result.push(current_sizes.pop().ok_or_else(|| oops!("bad input"))?);
+            }
+            match e.info {
+                Info::Directory => {
+                    current_sizes.push(0);
+                    ()
+                }
+                Info::File(size) => {
+                    for dir_size in &mut current_sizes {
+                        *dir_size += size;
+                    }
+                }
+            }
+        }
+        current_sizes.reverse();
+        result.append(&mut current_sizes);
+        Ok(result)
+    }
 }
 
 impl FromStr for Entity {
@@ -61,7 +64,6 @@ impl FromStr for Entity {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut entries = Vec::new();
         let mut current_depth: usize = 0;
-        // Skip $ cd /
         let mut lines = s.lines();
         loop {
             let l = lines.next();
@@ -79,7 +81,6 @@ impl FromStr for Entity {
                     } else {
                         entries.push(Entry {
                             depth: current_depth,
-                            label: arg.to_string(),
                             info: Info::Directory,
                         });
                         current_depth += 1;
@@ -90,22 +91,12 @@ impl FromStr for Entity {
             } else {
                 let mut file_info = l.split_whitespace();
                 let size = file_info.next().unwrap().parse()?;
-                let label = file_info.next().unwrap();
                 entries.push(Entry {
                     depth: current_depth,
-                    label: label.to_string(),
                     info: Info::File(size),
                 });
             }
         }
-        /*
-        Ok(Entity {
-            values: s
-                .lines()
-                .map(|s| s.parse::<Entry>())
-                .collect::<Result<Vec<_>, _>>()?,
-        })
-        */
         Ok(Entity { values: entries })
     }
 }
@@ -115,78 +106,27 @@ fn parse(input: &str) -> Result<Entity, Oops> {
 }
 
 fn part1(entity: &Entity) -> Result<usize, Oops> {
-    let mut current_sizes = Vec::new();
-    let mut result = 0;
-    for e in &entity.values {
-        while e.depth < current_sizes.len() {
-            let dir_size = current_sizes.pop().unwrap();
-            if dir_size < 100000 {
-                result += dir_size;
-            }
-        }
-        match e.info {
-            Info::Directory => {
-                current_sizes.push(0);
-                ()
-            }
-            Info::File(size) => {
-                for dir_size in &mut current_sizes {
-                    *dir_size += size;
-                }
-            }
-        }
-    }
-    Ok(result)
+    const MAX_DIR_SIZE: usize = 100_000;
+
+    Ok(entity
+        .get_directory_sizes()?
+        .iter()
+        .filter(|x| **x <= MAX_DIR_SIZE)
+        .sum())
 }
 
 fn part2(entity: &Entity) -> Result<usize, Oops> {
-    let mut current_sizes = Vec::new();
-    let mut result = 0;
-    for e in &entity.values {
-        while e.depth < current_sizes.len() {
-            let dir_size = current_sizes.pop().unwrap();
-            if dir_size < 100000 {
-                result += dir_size;
-            }
-        }
-        match e.info {
-            Info::Directory => {
-                current_sizes.push(0);
-                ()
-            }
-            Info::File(size) => {
-                for dir_size in &mut current_sizes {
-                    *dir_size += size;
-                }
-            }
-        }
-    }
-    let current_size = current_sizes[0];
-    const VOLUME_SIZE: usize = 70000000;
-    const REQUIRED_SIZE: usize = 30000000;
-    let mut candidate_size = VOLUME_SIZE;
-    for e in &entity.values {
-        while e.depth < current_sizes.len() {
-            let dir_size = current_sizes.pop().unwrap();
-            if (VOLUME_SIZE - (current_size - dir_size) >= REQUIRED_SIZE)
-                && dir_size < candidate_size
-            {
-                candidate_size = dir_size;
-            }
-        }
-        match e.info {
-            Info::Directory => {
-                current_sizes.push(0);
-                ()
-            }
-            Info::File(size) => {
-                for dir_size in &mut current_sizes {
-                    *dir_size += size;
-                }
-            }
-        }
-    }
-    Ok(candidate_size)
+    let directory_sizes = entity.get_directory_sizes()?;
+    let root_size = directory_sizes.last().ok_or_else(|| oops!("bad input"))?;
+
+    const VOLUME_SIZE: usize = 70_000_000;
+    const FREE_SPACE_REQUIRED: usize = 30_000_000;
+    directory_sizes
+        .iter()
+        .filter(|x| VOLUME_SIZE - (root_size - **x) >= FREE_SPACE_REQUIRED)
+        .min()
+        .copied()
+        .ok_or_else(|| oops!("bad input"))
 }
 
 fn main() -> Result<(), Oops> {
