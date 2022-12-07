@@ -13,54 +13,54 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
+use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Debug)]
-enum Info {
-    Directory,
-    File(usize),
+struct PathTree {
+    size: usize,
+    children: HashMap<String, PathTree>,
 }
 
-#[derive(Debug)]
-struct Entry {
-    depth: usize,
-    info: Info,
+impl PathTree {
+    fn new() -> PathTree {
+        PathTree {
+            size: 0,
+            children: HashMap::new(),
+        }
+    }
+
+    fn add_size_for_path(&mut self, path: &[&str], size: usize) {
+        self.size += size;
+        if path.is_empty() {
+            return;
+        }
+        // TODO: Is it possible to avoid calling to_string() here?
+        self.children
+            .entry(path[0].to_string())
+            .or_insert_with(PathTree::new)
+            .add_size_for_path(&path[1..], size);
+    }
+
+    // TODO: It would be nice if this didn't require a FnMut.
+    fn walk<F: FnMut(&PathTree)>(&self, f: &mut F) {
+        f(self);
+        for (_, child) in &self.children {
+            child.walk(f);
+        }
+    }
 }
 
 struct Entity {
-    values: Vec<Entry>,
-}
-
-impl Entity {
-    fn get_directory_sizes(&self) -> Result<Vec<usize>, Oops> {
-        let mut current_sizes = Vec::new();
-        let mut result = Vec::new();
-        for e in &self.values {
-            while e.depth < current_sizes.len() {
-                result.push(current_sizes.pop().ok_or_else(|| oops!("bad input"))?);
-            }
-            match e.info {
-                Info::Directory => current_sizes.push(0),
-                Info::File(size) => {
-                    for dir_size in &mut current_sizes {
-                        *dir_size += size;
-                    }
-                }
-            }
-        }
-        current_sizes.reverse();
-        result.append(&mut current_sizes);
-        Ok(result)
-    }
+    tree: PathTree,
 }
 
 impl FromStr for Entity {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut entries = Vec::new();
-        let mut current_depth: usize = 0;
+        let mut tree = PathTree::new();
+        let mut current_path = Vec::new();
         for cmd_and_output in s.split('$').map(|x| x.trim()).filter(|x| !x.is_empty()) {
             let (cmd, remainder) = cmd_and_output
                 .split_once(&[' ', '\n'])
@@ -68,32 +68,29 @@ impl FromStr for Entity {
             match cmd {
                 "cd" => match remainder {
                     ".." => {
-                        current_depth -= 1;
+                        current_path.pop();
                     }
-                    _ => {
-                        entries.push(Entry {
-                            depth: current_depth,
-                            info: Info::Directory,
-                        });
-                        current_depth += 1;
+                    name => {
+                        current_path.push(name);
                     }
                 },
                 "ls" => {
-                    entries.extend(remainder.lines().filter_map(|x| {
-                        let (first, _) = x.split_once(' ')?;
-                        let size = first.parse().ok()?;
-                        Some(Entry {
-                            depth: current_depth,
-                            info: Info::File(size),
-                        })
-                    }));
+                    for line in remainder.lines() {
+                        if line.starts_with("dir ") {
+                            continue;
+                        }
+                        let (first, _) = line
+                            .split_once(' ')
+                            .ok_or_else(|| oops!("expected file size"))?;
+                        tree.add_size_for_path(&current_path, first.parse()?);
+                    }
                 }
-                _ => {
-                    return Err(oops!("unexpected command"));
+                huh => {
+                    return Err(oops!("unexpected command {}", huh));
                 }
             }
         }
-        Ok(Entity { values: entries })
+        Ok(Entity { tree })
     }
 }
 
@@ -104,26 +101,26 @@ fn parse(input: &str) -> Result<Entity, Oops> {
 fn part1(entity: &Entity) -> Result<usize, Oops> {
     const MAX_DIR_SIZE: usize = 100_000;
 
-    Ok(entity
-        .get_directory_sizes()?
-        .iter()
-        .filter(|x| **x <= MAX_DIR_SIZE)
-        .sum())
+    let mut result = 0;
+    entity.tree.walk(&mut |x: &PathTree| {
+        if x.size <= MAX_DIR_SIZE {
+            result += x.size;
+        }
+    });
+    Ok(result)
 }
 
 fn part2(entity: &Entity) -> Result<usize, Oops> {
     const VOLUME_SIZE: usize = 70_000_000;
     const FREE_SPACE_REQUIRED: usize = 30_000_000;
 
-    let directory_sizes = entity.get_directory_sizes()?;
-    let root_size = directory_sizes.last().ok_or_else(|| oops!("bad input"))?;
-
-    directory_sizes
-        .iter()
-        .filter(|x| VOLUME_SIZE - (root_size - **x) >= FREE_SPACE_REQUIRED)
-        .min()
-        .copied()
-        .ok_or_else(|| oops!("bad input"))
+    let mut result = VOLUME_SIZE;
+    entity.tree.walk(&mut |x: &PathTree| {
+        if VOLUME_SIZE - (entity.tree.size - x.size) >= FREE_SPACE_REQUIRED && x.size < result {
+            result = x.size;
+        }
+    });
+    Ok(result)
 }
 
 fn main() -> Result<(), Oops> {
