@@ -13,25 +13,149 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::io::{self, Read};
 use std::str::FromStr;
 
+struct Matrix<T> {
+    data: Vec<T>,
+    width: usize,
+    height: usize,
+}
+
+impl<T: Copy> Matrix<T> {
+    fn new(width: usize, height: usize, default: T) -> Matrix<T> {
+        Matrix {
+            data: vec![default; width * height],
+            width,
+            height,
+        }
+    }
+
+    fn get(&self, x: usize, y: usize) -> T {
+        self.data[x + y * self.width]
+    }
+
+    fn set(&mut self, x: usize, y: usize, v: T) {
+        self.data[x + y * self.width] = v;
+    }
+
+    fn for_col(&self, x: usize) -> Col<T> {
+        Col {
+            matrix: self,
+            x,
+            y_low: 0,
+            y_high: self.height,
+        }
+    }
+
+    fn for_row(&self, y: usize) -> Row<T> {
+        Row {
+            matrix: self,
+            x_low: 0,
+            x_high: self.width,
+            y,
+        }
+    }
+}
+
+struct Col<'a, T> {
+    matrix: &'a Matrix<T>,
+    x: usize,
+    y_low: usize,
+    y_high: usize,
+}
+
+impl<'a, T> Iterator for Col<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.y_low < self.y_high {
+            let y = self.y_low;
+            self.y_low += 1;
+            Some(&self.matrix.data[self.x + y * self.matrix.width])
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.y_high - self.y_low;
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Col<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.y_high > self.y_low {
+            self.y_high -= 1;
+            let y = self.y_high;
+            Some(&self.matrix.data[self.x + y * self.matrix.width])
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Col<'a, T> {}
+
+struct Row<'a, T> {
+    matrix: &'a Matrix<T>,
+    x_low: usize,
+    x_high: usize,
+    y: usize,
+}
+
+impl<'a, T> Iterator for Row<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.x_low < self.x_high {
+            let x = self.x_low;
+            self.x_low += 1;
+            Some(&self.matrix.data[x + self.y * self.matrix.width])
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.x_high - self.x_low;
+        (remaining, Some(remaining))
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for Row<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.x_high > self.x_low {
+            self.x_high -= 1;
+            let x = self.x_high;
+            Some(&self.matrix.data[x + self.y * self.matrix.width])
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, T> ExactSizeIterator for Row<'a, T> {}
+
 struct Puzzle {
-    trees: Vec<Vec<i32>>,
+    trees: Matrix<i32>,
 }
 
 impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut result = Puzzle { trees: Vec::new() };
-        for line in s.lines() {
-            result
-                .trees
-                .push(line.chars().map(|c| c as i32 - '0' as i32).collect());
+        // Simplifying assumption: input is a square matrix.
+        let dim = s.lines().next().ok_or_else(|| oops!("no data"))?.len();
+        let mut matrix = Matrix::new(dim, dim, 0);
+        for (y, line) in s.lines().enumerate() {
+            for (x, c) in line.chars().enumerate() {
+                matrix.set(x, y, c as i32 - '0' as i32);
+            }
         }
-        Ok(result)
+        Ok(Puzzle { trees: matrix })
     }
 }
 
@@ -40,105 +164,72 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let xsize = puzzle.trees[0].len();
-    let ysize = puzzle.trees.len();
-    let mut visible = HashSet::new();
+    let mut visible = BTreeSet::new();
 
-    // Check left
-    let mut col = Vec::new();
-    col.resize(ysize, -1);
-    for x in 0..xsize {
-        for y in 0..ysize {
-            if puzzle.trees[x][y] > col[y] {
+    for x in 0..puzzle.trees.width {
+        let mut seen_tree = -1;
+        for (y, &tree) in puzzle.trees.for_col(x).enumerate() {
+            if tree > seen_tree {
+                seen_tree = tree;
                 visible.insert((x, y));
-                col[y] = puzzle.trees[x][y];
+            }
+        }
+
+        let mut seen_tree = -1;
+        for (y, &tree) in puzzle.trees.for_col(x).enumerate().rev() {
+            if tree > seen_tree {
+                seen_tree = tree;
+                visible.insert((x, y));
             }
         }
     }
-    // Check right
-    let mut col = Vec::new();
-    col.resize(ysize, -1);
-    for x in (0..xsize).rev() {
-        for y in 0..ysize {
-            if puzzle.trees[x][y] > col[y] {
+
+    for y in 0..puzzle.trees.height {
+        let mut seen_tree = -1;
+        for (x, &tree) in puzzle.trees.for_row(y).enumerate() {
+            if tree > seen_tree {
+                seen_tree = tree;
                 visible.insert((x, y));
-                col[y] = puzzle.trees[x][y];
+            }
+        }
+
+        let mut seen_tree = -1;
+        for (x, &tree) in puzzle.trees.for_row(y).enumerate().rev() {
+            if tree > seen_tree {
+                seen_tree = tree;
+                visible.insert((x, y));
             }
         }
     }
-    // Check top
-    let mut row = Vec::new();
-    row.resize(xsize, -1);
-    for y in 0..ysize {
-        for x in 0..xsize {
-            if puzzle.trees[x][y] > row[x] {
-                visible.insert((x, y));
-                row[x] = puzzle.trees[x][y];
-            }
-        }
-    }
-    // Check bottom
-    let mut row = Vec::new();
-    row.resize(xsize, -1);
-    for y in (0..ysize).rev() {
-        for x in 0..xsize {
-            if puzzle.trees[x][y] > row[x] {
-                visible.insert((x, y));
-                row[x] = puzzle.trees[x][y];
-            }
-        }
-    }
+
     Ok(visible.len())
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let xsize = puzzle.trees[0].len();
-    let ysize = puzzle.trees.len();
-
-    let mut candidate_score = 0;
-
-    for x in 0..xsize {
-        for y in 0..ysize {
-            let mut up_score = 0;
-            let this_height = puzzle.trees[x][y];
-            // look up
-            for y2 in (0..y).rev() {
-                up_score += 1;
-                if puzzle.trees[x][y2] >= this_height {
-                    break;
-                }
-            }
-            // look down
-            let mut down_score = 0;
-            for y2 in y + 1..ysize {
-                down_score += 1;
-                if puzzle.trees[x][y2] >= this_height {
-                    break;
-                }
-            }
-            // look left
-            let mut left_score = 0;
-            for x2 in (0..x).rev() {
-                left_score += 1;
-                if puzzle.trees[x2][y] >= this_height {
-                    break;
-                }
-            }
-            // look right
-            let mut right_score = 0;
-            for x2 in x + 1..xsize {
-                right_score += 1;
-                if puzzle.trees[x2][y] >= this_height {
-                    break;
-                }
-            }
-            let score = up_score * left_score * right_score * down_score;
-            if score > candidate_score {
-                candidate_score = score;
+    let mut result = 0;
+    for x in 0..puzzle.trees.width {
+        for y in 0..puzzle.trees.height {
+            let current_tree = puzzle.trees.get(x, y);
+            let score = (0..x)
+                .rev()
+                .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
+                .count()
+                * (x + 1..puzzle.trees.width)
+                    .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
+                    .count()
+                * (0..y)
+                    .rev()
+                    .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
+                    .count()
+                * (y + 1..puzzle.trees.height)
+                    .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
+                    .count();
+            if score > result {
+                result = score;
             }
         }
     }
-    Ok(candidate_score.try_into().unwrap())
+    Ok(result)
 }
 
 fn main() -> Result<(), Oops> {
