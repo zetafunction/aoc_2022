@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::cmp;
 use std::collections::HashSet;
 use std::io::{self, Read};
 use std::str::FromStr;
@@ -72,7 +71,10 @@ fn reduce(x: isize) -> isize {
     }
 }
 
-fn update_position(head: &(isize, isize), tail: &(isize, isize)) -> (isize, isize) {
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct Point(isize, isize);
+
+fn update_position(head: &Point, tail: &Point) -> Point {
     let mut new_tail = *tail;
     if (head.0 - tail.0).abs() > 1 {
         new_tail.0 += reduce(head.0 - tail.0);
@@ -89,8 +91,8 @@ fn update_position(head: &(isize, isize), tail: &(isize, isize)) -> (isize, isiz
 }
 
 fn solve_puzzle(puzzle: &Puzzle, knot_count: usize) -> usize {
-    let mut knots = Vec::new();
-    knots.resize(knot_count, (0, 0));
+    let mut knots = Vec::<Point>::new();
+    knots.resize(knot_count, Point(0, 0));
     let mut visited = HashSet::new();
     for m in &puzzle.moves {
         let (delta_x, delta_y, count) = match m {
