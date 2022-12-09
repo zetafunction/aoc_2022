@@ -79,7 +79,7 @@ impl Delta {
 impl Add<Delta> for Point {
     type Output = Point;
     fn add(self, dir: Delta) -> Self::Output {
-        return Point(self.0 + dir.0, self.1 + dir.1);
+        Point(self.0 + dir.0, self.1 + dir.1)
     }
 }
 
@@ -98,7 +98,6 @@ impl Sub for Point {
 }
 
 fn update_position(head: &Point, tail: &Point) -> Point {
-    //*
     let delta = *head - *tail;
     if delta.0.abs() > 1 || delta.1.abs() > 1 {
         *tail + delta.signum()

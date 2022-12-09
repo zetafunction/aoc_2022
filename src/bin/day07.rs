@@ -98,7 +98,7 @@ fn parse(input: &str) -> Result<Entity, Oops> {
     input.parse()
 }
 
-fn part1(entity: &Entity) -> Result<usize, Oops> {
+fn part1(entity: &Entity) -> usize {
     const MAX_DIR_SIZE: usize = 100_000;
 
     let mut result = 0;
@@ -107,10 +107,10 @@ fn part1(entity: &Entity) -> Result<usize, Oops> {
             result += x.size;
         }
     });
-    Ok(result)
+    result
 }
 
-fn part2(entity: &Entity) -> Result<usize, Oops> {
+fn part2(entity: &Entity) -> usize {
     const VOLUME_SIZE: usize = 70_000_000;
     const FREE_SPACE_REQUIRED: usize = 30_000_000;
 
@@ -120,7 +120,7 @@ fn part2(entity: &Entity) -> Result<usize, Oops> {
             result = x.size;
         }
     });
-    Ok(result)
+    result
 }
 
 fn main() -> Result<(), Oops> {
@@ -130,8 +130,8 @@ fn main() -> Result<(), Oops> {
 
     let entity = parse(&input)?;
 
-    println!("{}", part1(&entity)?);
-    println!("{}", part2(&entity)?);
+    println!("{}", part1(&entity));
+    println!("{}", part2(&entity));
 
     Ok(())
 }
@@ -168,11 +168,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(95437, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(95437, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(24933642, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(24933642, part2(&parse(SAMPLE).unwrap()));
     }
 }

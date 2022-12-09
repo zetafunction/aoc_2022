@@ -164,7 +164,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
+fn part1(puzzle: &Puzzle) -> usize {
     let trees = &puzzle.trees;
     let mut visible = HashSet::new();
 
@@ -174,7 +174,7 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                 return max;
             }
             visible.insert((x, y));
-            return *tree;
+            *tree
         };
         trees.col(x).enumerate().fold(-1, &mut counter);
         trees.col(x).enumerate().rev().fold(-1, &mut counter);
@@ -186,17 +186,17 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                 return max;
             }
             visible.insert((x, y));
-            return *tree;
+            *tree
         };
         trees.row(y).enumerate().fold(-1, &mut counter);
         trees.row(y).enumerate().rev().fold(-1, &mut counter);
     }
 
-    Ok(visible.len())
+    visible.len()
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok((0..puzzle.trees.width)
+    (0..puzzle.trees.width)
         .flat_map(|x| {
             (0..puzzle.trees.height).map(move |y| {
                 let current_tree = puzzle.trees.get(x, y);
@@ -232,7 +232,7 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
             })
         })
         .max()
-        .unwrap())
+        .ok_or_else(|| oops!("no trees"))
 }
 
 fn main() -> Result<(), Oops> {
@@ -242,7 +242,7 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
+    println!("{}", part1(&puzzle));
     println!("{}", part2(&puzzle)?);
 
     Ok(())
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(21, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(21, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
