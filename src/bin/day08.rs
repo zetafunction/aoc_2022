@@ -41,7 +41,7 @@ impl<T: Copy> Matrix<T> {
         self.data[x + y * self.width] = v;
     }
 
-    fn for_col(&self, x: usize) -> Col<T> {
+    fn col(&self, x: usize) -> Col<T> {
         Col {
             matrix: self,
             x,
@@ -50,7 +50,7 @@ impl<T: Copy> Matrix<T> {
         }
     }
 
-    fn for_row(&self, y: usize) -> Row<T> {
+    fn row(&self, y: usize) -> Row<T> {
         Row {
             matrix: self,
             x_low: 0,
@@ -165,42 +165,31 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
+    let trees = &puzzle.trees;
     let mut visible = HashSet::new();
 
-    for x in 0..puzzle.trees.width {
-        let mut seen_tree = -1;
-        for (y, &tree) in puzzle.trees.for_col(x).enumerate() {
-            if tree > seen_tree {
-                seen_tree = tree;
-                visible.insert((x, y));
+    for x in 0..trees.width {
+        let mut counter = |max, (y, tree): (_, &i32)| {
+            if *tree <= max {
+                return max;
             }
-        }
-
-        let mut seen_tree = -1;
-        for (y, &tree) in puzzle.trees.for_col(x).enumerate().rev() {
-            if tree > seen_tree {
-                seen_tree = tree;
-                visible.insert((x, y));
-            }
-        }
+            visible.insert((x, y));
+            return *tree;
+        };
+        trees.col(x).enumerate().fold(-1, &mut counter);
+        trees.col(x).enumerate().rev().fold(-1, &mut counter);
     }
 
-    for y in 0..puzzle.trees.height {
-        let mut seen_tree = -1;
-        for (x, &tree) in puzzle.trees.for_row(y).enumerate() {
-            if tree > seen_tree {
-                seen_tree = tree;
-                visible.insert((x, y));
+    for y in 0..trees.height {
+        let mut counter = |max, (x, tree): (_, &i32)| {
+            if *tree <= max {
+                return max;
             }
-        }
-
-        let mut seen_tree = -1;
-        for (x, &tree) in puzzle.trees.for_row(y).enumerate().rev() {
-            if tree > seen_tree {
-                seen_tree = tree;
-                visible.insert((x, y));
-            }
-        }
+            visible.insert((x, y));
+            return *tree;
+        };
+        trees.row(y).enumerate().fold(-1, &mut counter);
+        trees.row(y).enumerate().rev().fold(-1, &mut counter);
     }
 
     Ok(visible.len())
