@@ -112,12 +112,12 @@ fn solve_puzzle(puzzle: &Puzzle, knot_count: usize) -> usize {
     visited.len()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(solve_puzzle(puzzle, 2))
+fn part1(puzzle: &Puzzle) -> usize {
+    solve_puzzle(puzzle, 2)
 }
 
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(solve_puzzle(puzzle, 10))
+fn part2(puzzle: &Puzzle) -> usize {
+    solve_puzzle(puzzle, 10)
 }
 
 fn main() -> Result<(), Oops> {
@@ -127,8 +127,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -137,19 +137,20 @@ fn main() -> Result<(), Oops> {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str =
+    const SAMPLE1: &str =
         concat!("R 4\n", "U 4\n", "L 3\n", "D 1\n", "R 4\n", "D 1\n", "L 5\n", "R 2\n",);
+    const SAMPLE2: &str =
+        concat!("R 5\n", "U 8\n", "L 8\n", "D 3\n", "R 17\n", "D 10\n", "L 25\n", "U 20\n",);
 
     #[test]
     fn example1() {
-        assert_eq!(13, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(13, part1(&parse(SAMPLE1).unwrap()));
+        assert_eq!(88, part1(&parse(SAMPLE2).unwrap()));
     }
 
     #[test]
     fn example2() {
-        const SAMPLE2: &str =
-            concat!("R 5\n", "U 8\n", "L 8\n", "D 3\n", "R 17\n", "D 10\n", "L 25\n", "U 20\n",);
-        assert_eq!(1, part2(&parse(SAMPLE).unwrap()).unwrap());
-        assert_eq!(36, part2(&parse(SAMPLE2).unwrap()).unwrap());
+        assert_eq!(1, part2(&parse(SAMPLE1).unwrap()));
+        assert_eq!(36, part2(&parse(SAMPLE2).unwrap()));
     }
 }
