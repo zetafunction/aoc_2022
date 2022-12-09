@@ -45,7 +45,7 @@ impl PathTree {
     // TODO: It would be nice if this didn't require a FnMut.
     fn walk<F: FnMut(&PathTree)>(&self, f: &mut F) {
         f(self);
-        for (_, child) in &self.children {
+        for child in self.children.values() {
             child.walk(f);
         }
     }
@@ -63,7 +63,7 @@ impl FromStr for Entity {
         let mut current_path = Vec::new();
         for cmd_and_output in s.split('$').map(|x| x.trim()).filter(|x| !x.is_empty()) {
             let (cmd, remainder) = cmd_and_output
-                .split_once(&[' ', '\n'])
+                .split_once([' ', '\n'])
                 .ok_or_else(|| oops!("bad input"))?;
             match cmd {
                 "cd" => match remainder {
