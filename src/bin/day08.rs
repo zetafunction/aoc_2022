@@ -196,45 +196,43 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut result = 0;
-    for x in 0..puzzle.trees.width {
-        for y in 0..puzzle.trees.height {
-            let current_tree = puzzle.trees.get(x, y);
-            // The individual score calculations are awkward because take_while() does not return
-            // the first failing item.
-            let left_score = cmp::min(
-                1 + (0..x)
-                    .rev()
-                    .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
-                    .count(),
-                x,
-            );
-            let right_score = cmp::min(
-                1 + (x + 1..puzzle.trees.width)
-                    .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
-                    .count(),
-                puzzle.trees.width - x - 1,
-            );
-            let up_score = cmp::min(
-                1 + (0..y)
-                    .rev()
-                    .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
-                    .count(),
-                y,
-            );
-            let down_score = cmp::min(
-                1 + (y + 1..puzzle.trees.height)
-                    .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
-                    .count(),
-                puzzle.trees.height - y - 1,
-            );
-            let score = left_score * right_score * up_score * down_score;
-            if score > result {
-                result = score;
-            }
-        }
-    }
-    Ok(result)
+    Ok((0..puzzle.trees.width)
+        .flat_map(|x| {
+            (0..puzzle.trees.height).map(move |y| {
+                let current_tree = puzzle.trees.get(x, y);
+                // The individual score calculations are awkward because take_while() does not return
+                // the first failing item.
+                let left_score = cmp::min(
+                    1 + (0..x)
+                        .rev()
+                        .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
+                        .count(),
+                    x,
+                );
+                let right_score = cmp::min(
+                    1 + (x + 1..puzzle.trees.width)
+                        .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
+                        .count(),
+                    puzzle.trees.width - x - 1,
+                );
+                let up_score = cmp::min(
+                    1 + (0..y)
+                        .rev()
+                        .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
+                        .count(),
+                    y,
+                );
+                let down_score = cmp::min(
+                    1 + (y + 1..puzzle.trees.height)
+                        .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
+                        .count(),
+                    puzzle.trees.height - y - 1,
+                );
+                left_score * right_score * up_score * down_score
+            })
+        })
+        .max()
+        .unwrap())
 }
 
 fn main() -> Result<(), Oops> {
