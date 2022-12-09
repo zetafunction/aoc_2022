@@ -13,7 +13,8 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::BTreeSet;
+use std::cmp;
+use std::collections::HashSet;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -164,7 +165,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut visible = BTreeSet::new();
+    let mut visible = HashSet::new();
 
     for x in 0..puzzle.trees.width {
         let mut seen_tree = -1;
@@ -210,20 +211,35 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
     for x in 0..puzzle.trees.width {
         for y in 0..puzzle.trees.height {
             let current_tree = puzzle.trees.get(x, y);
-            let score = (0..x)
-                .rev()
-                .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
-                .count()
-                * (x + 1..puzzle.trees.width)
+            // The individual score calculations are awkward because take_while() does not return
+            // the first failing item.
+            let left_score = cmp::min(
+                1 + (0..x)
+                    .rev()
                     .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
-                    .count()
-                * (0..y)
+                    .count(),
+                x,
+            );
+            let right_score = cmp::min(
+                1 + (x + 1..puzzle.trees.width)
+                    .take_while(|&xc| puzzle.trees.get(xc, y) < current_tree)
+                    .count(),
+                puzzle.trees.width - x - 1,
+            );
+            let up_score = cmp::min(
+                1 + (0..y)
                     .rev()
                     .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
-                    .count()
-                * (y + 1..puzzle.trees.height)
+                    .count(),
+                y,
+            );
+            let down_score = cmp::min(
+                1 + (y + 1..puzzle.trees.height)
                     .take_while(|&yc| puzzle.trees.get(x, yc) < current_tree)
-                    .count();
+                    .count(),
+                puzzle.trees.height - y - 1,
+            );
+            let score = left_score * right_score * up_score * down_score;
             if score > result {
                 result = score;
             }
