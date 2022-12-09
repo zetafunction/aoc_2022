@@ -15,6 +15,7 @@
 use aoc_2022::{oops, oops::Oops};
 use std::collections::HashSet;
 use std::io::{self, Read};
+use std::ops::{Add, AddAssign, Sub};
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -63,45 +64,59 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn reduce(x: isize) -> isize {
-    if x > 0 {
-        1
-    } else {
-        -1
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Point(isize, isize);
 
-fn update_position(head: &Point, tail: &Point) -> Point {
-    let mut new_tail = *tail;
-    if (head.0 - tail.0).abs() > 1 {
-        new_tail.0 += reduce(head.0 - tail.0);
-        if (head.1 - tail.1) != 0 {
-            new_tail.1 += reduce(head.1 - tail.1);
-        }
-    } else if (head.1 - tail.1).abs() > 1 {
-        new_tail.1 += reduce(head.1 - tail.1);
-        if (head.0 - tail.0) != 0 {
-            new_tail.0 += reduce(head.0 - tail.0);
-        }
+#[derive(Clone, Copy)]
+struct Delta(isize, isize);
+
+impl Delta {
+    fn signum(&self) -> Delta {
+        Delta(self.0.signum(), self.1.signum())
     }
-    new_tail
+}
+
+impl Add<Delta> for Point {
+    type Output = Point;
+    fn add(self, dir: Delta) -> Self::Output {
+        return Point(self.0 + dir.0, self.1 + dir.1);
+    }
+}
+
+impl AddAssign<Delta> for Point {
+    fn add_assign(&mut self, dir: Delta) {
+        self.0 += dir.0;
+        self.1 += dir.1;
+    }
+}
+
+impl Sub for Point {
+    type Output = Delta;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Delta(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+
+fn update_position(head: &Point, tail: &Point) -> Point {
+    //*
+    let delta = *head - *tail;
+    if delta.0.abs() > 1 || delta.1.abs() > 1 {
+        *tail + delta.signum()
+    } else {
+        *tail
+    }
 }
 
 fn solve_puzzle(puzzle: &Puzzle, knot_count: usize) -> usize {
-    let mut knots = Vec::<Point>::new();
-    knots.resize(knot_count, Point(0, 0));
+    let mut knots: Vec<_> = std::iter::repeat(Point(0, 0)).take(knot_count).collect();
     let mut visited = HashSet::new();
     for m in &puzzle.moves {
-        let (delta_x, delta_y, count) = match m {
-            Move::Horizontal(x) => (reduce(*x), 0, x.abs()),
-            Move::Vertical(y) => (0, reduce(*y), y.abs()),
+        let (delta, count) = match m {
+            Move::Horizontal(x) => (Delta(x.signum(), 0), x.abs()),
+            Move::Vertical(y) => (Delta(0, y.signum()), y.abs()),
         };
         for _ in 0..count {
-            knots[0].0 += delta_x;
-            knots[0].1 += delta_y;
+            knots[0] += delta;
             for i in 0..knots.len() - 1 {
                 let new_position = update_position(&knots[i], &knots[i + 1]);
                 knots[i + 1] = new_position;
