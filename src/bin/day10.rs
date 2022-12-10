@@ -80,21 +80,19 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-// Note: this produces an extra state due to the way it's currently implemented: if the input
-// consists of 30 instructions, the output contains 31 states.
 fn execute_program(ops: &[Op]) -> Vec<CpuState> {
-    // The first CpuState::new() represents the state of the CPU at cycle 1, since instructions
-    // are only retired at the end of the cycle.
-    ops.iter().fold(vec![CpuState::new()], |mut acc, next| {
-        let next_state = match next {
-            Op::Nop => *acc.last().unwrap(),
-            Op::AddX(delta) => CpuState {
-                x: acc.last().unwrap().x as i32 + delta,
-            },
-        };
-        acc.push(next_state);
-        acc
-    })
+    ops.iter()
+        .scan(CpuState::new(), |state, next| {
+            let current_state = *state;
+            match next {
+                Op::Nop => {}
+                Op::AddX(delta) => {
+                    state.x += delta;
+                }
+            };
+            Some(current_state)
+        })
+        .collect()
 }
 
 fn part1(puzzle: &Puzzle) -> i32 {
@@ -111,7 +109,7 @@ fn part2(puzzle: &Puzzle) -> String {
     let states = execute_program(&puzzle.ops);
     let pixels: String = (0..40)
         .cycle()
-        .zip(states.iter().rev().skip(1).rev())
+        .zip(states.iter())
         .flat_map(|(cursor, state)| {
             if cursor == 0 { Some('\n') } else { None }
                 .into_iter()
