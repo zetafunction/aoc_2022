@@ -22,29 +22,6 @@ enum Op {
     AddX(i32),
 }
 
-struct Instruction {
-    ops: Vec<Op>,
-}
-
-impl Instruction {
-    fn new(ops: Vec<Op>) -> Self {
-        Instruction { ops }
-    }
-}
-
-impl FromStr for Instruction {
-    type Err = Oops;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let words = s.split_whitespace().collect::<Vec<_>>();
-        match words[0] {
-            "noop" => Ok(Instruction::new(vec![Op::Nop])),
-            "addx" => Ok(Instruction::new(vec![Op::Nop, Op::AddX(words[1].parse()?)])),
-            _ => Err(oops!("no instruction")),
-        }
-    }
-}
-
 struct Puzzle {
     ops: Vec<Op>,
 }
@@ -60,6 +37,24 @@ impl CpuState {
     }
 }
 
+fn parse_instruction(s: &str) -> Vec<Result<Op, Oops>> {
+    let mut parser = s.split_whitespace();
+    let failed = || vec![Err(oops!("decode failed: {}", s))];
+    let Some(instruction) = parser.next() else {
+        return failed();
+    };
+    match instruction {
+        "noop" => vec![Ok(Op::Nop)],
+        "addx" => {
+            let Some(addend) = parser.next().and_then(|x| x.parse().ok()) else {
+                return failed();
+            };
+            vec![Ok(Op::Nop), Ok(Op::AddX(addend))]
+        }
+        _ => failed(),
+    }
+}
+
 impl FromStr for Puzzle {
     type Err = Oops;
 
@@ -67,11 +62,8 @@ impl FromStr for Puzzle {
         Ok(Puzzle {
             ops: s
                 .lines()
-                .map(|line| line.trim().parse::<Instruction>())
-                .try_fold(Vec::new(), |mut acc, next| {
-                    acc.extend_from_slice(&next?.ops);
-                    Ok::<Vec<Op>, Oops>(acc)
-                })?,
+                .flat_map(|line| parse_instruction(line.trim()))
+                .collect::<Result<_, _>>()?,
         })
     }
 }
