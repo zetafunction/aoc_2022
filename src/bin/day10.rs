@@ -16,30 +16,48 @@ use aoc_2022::{oops, oops::Oops};
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Debug)]
-enum Inst {
-    Noop,
+#[derive(Clone, Copy)]
+enum Op {
+    Nop,
     AddX(i32),
 }
 
-impl FromStr for Inst {
+struct Instruction {
+    ops: Vec<Op>,
+}
+
+impl Instruction {
+    fn new(ops: Vec<Op>) -> Self {
+        Instruction { ops }
+    }
+}
+
+impl FromStr for Instruction {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "noop" {
-            Ok(Inst::Noop)
-        } else {
-            let words = s.split_whitespace().collect::<Vec<_>>();
-            match words[0] {
-                "addx" => Ok(Inst::AddX(words[1].parse()?)),
-                _ => Err(oops!("no match")),
-            }
+        let words = s.split_whitespace().collect::<Vec<_>>();
+        match words[0] {
+            "noop" => Ok(Instruction::new(vec![Op::Nop])),
+            "addx" => Ok(Instruction::new(vec![Op::Nop, Op::AddX(words[1].parse()?)])),
+            _ => Err(oops!("no instruction")),
         }
     }
 }
 
 struct Puzzle {
-    instructions: Vec<Inst>,
+    ops: Vec<Op>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct CpuState {
+    x: i32,
+}
+
+impl CpuState {
+    fn new() -> Self {
+        CpuState { x: 1 }
+    }
 }
 
 impl FromStr for Puzzle {
@@ -47,10 +65,13 @@ impl FromStr for Puzzle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Puzzle {
-            instructions: s
+            ops: s
                 .lines()
-                .map(|line| line.trim().parse())
-                .collect::<Result<Vec<_>, _>>()?,
+                .map(|line| line.trim().parse::<Instruction>())
+                .try_fold(Vec::new(), |mut acc, next| {
+                    acc.extend_from_slice(&next?.ops);
+                    Ok::<Vec<Op>, Oops>(acc)
+                })?,
         })
     }
 }
@@ -59,62 +80,62 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> i32 {
-    const SPECIAL_CYCLES: &[usize] = &[20, 60, 100, 140, 180, 220];
-    let mut reg_x: i32 = 1;
-    let mut result: i32 = 0;
-    let mut deferred_add = None;
-    let mut index = 0;
-    let mut cycle = 0;
-    while index < puzzle.instructions.len() {
-        cycle += 1;
-        if SPECIAL_CYCLES.contains(&cycle) {
-            let strength = cycle as i32 * reg_x;
-            result += strength;
-        }
-        if let Some(value) = deferred_add.take() {
-            reg_x += value;
-            continue;
-        }
-        match puzzle.instructions[index] {
-            Inst::Noop => {}
-            Inst::AddX(x) => deferred_add = Some(x),
-        }
-        index += 1;
-    }
-    result
+fn execute_program(ops: &[Op]) -> Vec<CpuState> {
+    // The first CpuState::new() is just a sentinel placeholder.
+    // The second CpuState::new() represents the state of the CPU at cycle 1, since instructions
+    // are only retired at the end of the cycle.
+    ops.iter()
+        .fold(vec![CpuState::new(), CpuState::new()], |mut acc, next| {
+            let next_state = match next {
+                Op::Nop => *acc.last().unwrap(),
+                Op::AddX(delta) => CpuState {
+                    x: acc.last().unwrap().x as i32 + delta,
+                },
+            };
+            acc.push(next_state);
+            acc
+        })
 }
 
-fn part2(puzzle: &Puzzle) -> usize {
-    let mut reg_x: i32 = 1;
-    let mut result: i32 = 0;
-    let mut deferred_add = None;
-    let mut index = 0;
-    let mut cycle = 0;
-    let mut pixels = Vec::new();
-    let mut pixel_pos = 0;
-    while index < puzzle.instructions.len() {
-        cycle += 1;
-        if ((pixel_pos % 40) as i32 - reg_x).abs() <= 1 {
-            pixels.push('#');
-        } else {
-            pixels.push('.');
-        }
-        pixel_pos += 1;
-        if let Some(value) = deferred_add.take() {
-            reg_x += value;
-            continue;
-        }
-        match puzzle.instructions[index] {
-            Inst::Noop => {}
-            Inst::AddX(x) => deferred_add = Some(x),
-        }
-        index += 1;
-    }
-    for line in pixels.chunks(40) {
-        println!("{}", line.iter().collect::<String>());
-    }
-    0
+fn part1(puzzle: &Puzzle) -> i32 {
+    let states = execute_program(&puzzle.ops);
+    states
+        .iter()
+        .enumerate()
+        .skip(20)
+        .step_by(40)
+        .map(|(i, state)| i as i32 * state.x)
+        .sum()
+}
+
+fn part2(puzzle: &Puzzle) -> String {
+    let states = execute_program(&puzzle.ops);
+    let pixels: String = states
+        .iter()
+        .enumerate()
+        // Skip the sentinel placeholder state.
+        .skip(1)
+        .rev()
+        // SKip the final state, as it is actually the state of the CPU one cycle past the end of
+        // the program.
+        .skip(1)
+        .rev()
+        .flat_map(|(cycle, state)| {
+            // Drawing position is 0-indexed, while cycles are 1-indexed.
+            let draw_pos = cycle - 1;
+            if draw_pos % 40 == 0 { Some('\n') } else { None }
+                .into_iter()
+                .chain(if ((draw_pos % 40) as i32 - state.x).abs() <= 1 {
+                    Some('#').into_iter()
+                } else {
+                    Some('.').into_iter()
+                })
+        })
+        // Skip the initial newline.
+        .skip(1)
+        .chain(Some('\n').into_iter())
+        .collect();
+    pixels
 }
 
 fn main() -> Result<(), Oops> {
@@ -134,160 +155,170 @@ fn main() -> Result<(), Oops> {
 mod tests {
     use super::*;
 
-    const SAMPLE: &str = r#"addx 15
-addx -11
-addx 6
-addx -3
-addx 5
-addx -1
-addx -8
-addx 13
-addx 4
-noop
-addx -1
-addx 5
-addx -1
-addx 5
-addx -1
-addx 5
-addx -1
-addx 5
-addx -1
-addx -35
-addx 1
-addx 24
-addx -19
-addx 1
-addx 16
-addx -11
-noop
-noop
-addx 21
-addx -15
-noop
-noop
-addx -3
-addx 9
-addx 1
-addx -3
-addx 8
-addx 1
-addx 5
-noop
-noop
-noop
-noop
-noop
-addx -36
-noop
-addx 1
-addx 7
-noop
-noop
-noop
-addx 2
-addx 6
-noop
-noop
-noop
-noop
-noop
-addx 1
-noop
-noop
-addx 7
-addx 1
-noop
-addx -13
-addx 13
-addx 7
-noop
-addx 1
-addx -33
-noop
-noop
-noop
-addx 2
-noop
-noop
-noop
-addx 8
-noop
-addx -1
-addx 2
-addx 1
-noop
-addx 17
-addx -9
-addx 1
-addx 1
-addx -3
-addx 11
-noop
-noop
-addx 1
-noop
-addx 1
-noop
-noop
-addx -13
-addx -19
-addx 1
-addx 3
-addx 26
-addx -30
-addx 12
-addx -1
-addx 3
-addx 1
-noop
-noop
-noop
-addx -9
-addx 18
-addx 1
-addx 2
-noop
-noop
-addx 9
-noop
-noop
-noop
-addx -1
-addx 2
-addx -37
-addx 1
-addx 3
-noop
-addx 15
-addx -21
-addx 22
-addx -6
-addx 1
-noop
-addx 2
-addx 1
-noop
-addx -10
-noop
-noop
-addx 20
-addx 1
-addx 2
-addx 2
-addx -6
-addx -11
-noop
-noop
-noop"#;
+    const SAMPLE: &str = concat!(
+        "addx 15\n",
+        "addx -11\n",
+        "addx 6\n",
+        "addx -3\n",
+        "addx 5\n",
+        "addx -1\n",
+        "addx -8\n",
+        "addx 13\n",
+        "addx 4\n",
+        "noop\n",
+        "addx -1\n",
+        "addx 5\n",
+        "addx -1\n",
+        "addx 5\n",
+        "addx -1\n",
+        "addx 5\n",
+        "addx -1\n",
+        "addx 5\n",
+        "addx -1\n",
+        "addx -35\n",
+        "addx 1\n",
+        "addx 24\n",
+        "addx -19\n",
+        "addx 1\n",
+        "addx 16\n",
+        "addx -11\n",
+        "noop\n",
+        "noop\n",
+        "addx 21\n",
+        "addx -15\n",
+        "noop\n",
+        "noop\n",
+        "addx -3\n",
+        "addx 9\n",
+        "addx 1\n",
+        "addx -3\n",
+        "addx 8\n",
+        "addx 1\n",
+        "addx 5\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx -36\n",
+        "noop\n",
+        "addx 1\n",
+        "addx 7\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx 2\n",
+        "addx 6\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx 1\n",
+        "noop\n",
+        "noop\n",
+        "addx 7\n",
+        "addx 1\n",
+        "noop\n",
+        "addx -13\n",
+        "addx 13\n",
+        "addx 7\n",
+        "noop\n",
+        "addx 1\n",
+        "addx -33\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx 2\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx 8\n",
+        "noop\n",
+        "addx -1\n",
+        "addx 2\n",
+        "addx 1\n",
+        "noop\n",
+        "addx 17\n",
+        "addx -9\n",
+        "addx 1\n",
+        "addx 1\n",
+        "addx -3\n",
+        "addx 11\n",
+        "noop\n",
+        "noop\n",
+        "addx 1\n",
+        "noop\n",
+        "addx 1\n",
+        "noop\n",
+        "noop\n",
+        "addx -13\n",
+        "addx -19\n",
+        "addx 1\n",
+        "addx 3\n",
+        "addx 26\n",
+        "addx -30\n",
+        "addx 12\n",
+        "addx -1\n",
+        "addx 3\n",
+        "addx 1\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx -9\n",
+        "addx 18\n",
+        "addx 1\n",
+        "addx 2\n",
+        "noop\n",
+        "noop\n",
+        "addx 9\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+        "addx -1\n",
+        "addx 2\n",
+        "addx -37\n",
+        "addx 1\n",
+        "addx 3\n",
+        "noop\n",
+        "addx 15\n",
+        "addx -21\n",
+        "addx 22\n",
+        "addx -6\n",
+        "addx 1\n",
+        "noop\n",
+        "addx 2\n",
+        "addx 1\n",
+        "noop\n",
+        "addx -10\n",
+        "noop\n",
+        "noop\n",
+        "addx 20\n",
+        "addx 1\n",
+        "addx 2\n",
+        "addx 2\n",
+        "addx -6\n",
+        "addx -11\n",
+        "noop\n",
+        "noop\n",
+        "noop\n",
+    );
 
     #[test]
     fn example1() {
-        assert_eq!(13, part1(&parse(SAMPLE).unwrap()));
+        assert_eq!(13140, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(1, part2(&parse(SAMPLE).unwrap()));
+        const OUTPUT: &str = concat!(
+            "##..##..##..##..##..##..##..##..##..##..\n",
+            "###...###...###...###...###...###...###.\n",
+            "####....####....####....####....####....\n",
+            "#####.....#####.....#####.....#####.....\n",
+            "######......######......######......####\n",
+            "#######.......#######.......#######.....\n",
+        );
+        assert_eq!(OUTPUT, part2(&parse(SAMPLE).unwrap()));
     }
 }
