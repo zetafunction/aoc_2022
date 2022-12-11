@@ -60,7 +60,6 @@ struct Monkey {
     divisor_test: usize,
     on_true: usize,
     on_false: usize,
-    inspections: usize,
 }
 
 impl FromStr for Monkey {
@@ -110,7 +109,6 @@ impl FromStr for Monkey {
             divisor_test,
             on_true,
             on_false,
-            inspections: 0,
         })
     }
 }
@@ -122,19 +120,16 @@ struct Puzzle {
 
 impl Puzzle {
     fn calculate_mbl<F: Fn(usize) -> usize>(&mut self, rounds: usize, mitigate_worry: &F) -> usize {
-        for _ in 0..rounds {
+        let mut inspections = (0..rounds).fold(vec![0; self.monkeys.len()], |mut acc, _| {
             for i in 0..self.monkeys.len() {
+                acc[i] += self.monkeys[i].items.len();
                 self.process_monkey(i, mitigate_worry);
             }
-        }
+            acc
+        });
 
-        let mut counts = self
-            .monkeys
-            .iter()
-            .map(|x| x.inspections)
-            .collect::<Vec<_>>();
-        counts.sort_by(|a, b| b.cmp(a));
-        counts[0] * counts[1]
+        inspections.sort_by(|a, b| b.cmp(a));
+        inspections[0] * inspections[1]
     }
 
     fn process_monkey<F: Fn(usize) -> usize>(&mut self, i: usize, mitigate_worry: &F) {
@@ -150,9 +145,6 @@ impl Puzzle {
                 Op::Multiply => current_worry * operand,
             }
         };
-
-        // Assume no cycles.
-        self.monkeys[i].inspections += self.monkeys[i].items.len();
 
         while let Some(worry_level) = self.monkeys[i].items.pop_front() {
             let worry_level = mitigate_worry(apply_op(worry_level));
