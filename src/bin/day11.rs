@@ -74,7 +74,7 @@ impl FromStr for Monkey {
             .and_then(|s| s.strip_prefix("Starting items: "))
             .ok_or_else(|| oops!("no starting items"))?
             .split(", ")
-            .map(|x| x.parse())
+            .map(str::parse)
             .collect::<Result<_, _>>()?;
         let Some(op_str) = parser.next().and_then(|s| s.strip_prefix("Operation: new = old ")) else {
             return Err(oops!("no operation"));
@@ -172,7 +172,7 @@ impl FromStr for Puzzle {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let monkeys = s
             .split("\n\n")
-            .map(|x| x.parse())
+            .map(str::parse)
             .collect::<Result<Vec<Monkey>, _>>()?;
         Ok(Puzzle { monkeys })
     }
