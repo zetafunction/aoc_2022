@@ -23,31 +23,33 @@ enum Operand {
     Old,
 }
 
+impl FromStr for Operand {
+    type Err = Oops;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "old" {
+            Ok(Operand::Old)
+        } else {
+            Ok(Operand::Literal(s.parse()?))
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum Op {
-    Multiply(Operand),
-    Add(Operand),
+    Multiply,
+    Add,
 }
 
 #[derive(Clone)]
 struct Monkey {
     items: VecDeque<usize>,
     op: Op,
-    test_operand: usize,
+    operand: Operand,
+    divisor_test: usize,
     on_true: usize,
     on_false: usize,
     inspections: usize,
-}
-
-fn parse_operand(s: Option<&str>) -> Result<Operand, Oops> {
-    let Some(s) = s else {
-        return Err(oops!("illegal operand"));
-    };
-    if s == "old" {
-        Ok(Operand::Old)
-    } else {
-        Ok(Operand::Literal(s.parse()?))
-    }
 }
 
 impl FromStr for Monkey {
@@ -75,17 +77,21 @@ impl FromStr for Monkey {
         };
         let mut op_parser = op_str.split_whitespace();
         let op = match op_parser.next() {
-            Some("*") => Op::Multiply(parse_operand(op_parser.next())?),
-            Some("+") => Op::Add(parse_operand(op_parser.next())?),
-            _ => Err(oops!("illegal operand"))?,
+            Some("*") => Op::Multiply,
+            Some("+") => Op::Add,
+            _ => Err(oops!("bad op"))?,
         };
+        let operand = op_parser
+            .next()
+            .ok_or_else(|| oops!("no operand"))?
+            .parse()?;
         let Some(test_line) = parser.next() else {
             return Err(oops!("no test line"));
         };
-        let Some(test_operand) = test_line.strip_prefix("Test: divisible by ") else {
+        let Some(divisor_test) = test_line.strip_prefix("Test: divisible by ") else {
             return Err(oops!("illegal test operand"));
         };
-        let test_operand = test_operand.parse()?;
+        let divisor_test = divisor_test.parse()?;
         let Some(true_line) = parser.next() else {
             return Err(oops!("no true line"));
         };
@@ -103,7 +109,8 @@ impl FromStr for Monkey {
         Ok(Monkey {
             items,
             op,
-            test_operand,
+            operand,
+            divisor_test,
             on_true,
             on_false,
             inspections: 0,
@@ -121,18 +128,16 @@ impl Puzzle {
     fn evaluate_monkey(&mut self, i: usize) {
         let op = self.monkeys[i].op;
         while let Some(worry_level) = self.monkeys[i].items.pop_front() {
+            let operand = match self.monkeys[i].operand {
+                Operand::Old => worry_level,
+                Operand::Literal(x) => x,
+            };
             let worry_level = match op {
-                Op::Add(operand) => match operand {
-                    Operand::Old => worry_level + worry_level,
-                    Operand::Literal(x) => worry_level + x,
-                },
-                Op::Multiply(operand) => match operand {
-                    Operand::Old => worry_level * worry_level,
-                    Operand::Literal(x) => worry_level * x,
-                },
+                Op::Add => worry_level + operand,
+                Op::Multiply => worry_level * operand,
             } / 3;
             self.monkeys[i].inspections += 1;
-            let target = if worry_level % self.monkeys[i].test_operand == 0 {
+            let target = if worry_level % self.monkeys[i].divisor_test == 0 {
                 self.monkeys[i].on_true
             } else {
                 self.monkeys[i].on_false
@@ -144,18 +149,16 @@ impl Puzzle {
     fn evaluate_monkey2(&mut self, i: usize) {
         let op = self.monkeys[i].op;
         while let Some(worry_level) = self.monkeys[i].items.pop_front() {
+            let operand = match self.monkeys[i].operand {
+                Operand::Old => worry_level,
+                Operand::Literal(x) => x,
+            };
             let worry_level = match op {
-                Op::Add(operand) => match operand {
-                    Operand::Old => worry_level + worry_level,
-                    Operand::Literal(x) => worry_level + x,
-                },
-                Op::Multiply(operand) => match operand {
-                    Operand::Old => worry_level * worry_level,
-                    Operand::Literal(x) => worry_level * x,
-                },
+                Op::Add => worry_level + operand,
+                Op::Multiply => worry_level * operand,
             } % self.factor;
             self.monkeys[i].inspections += 1;
-            let target = if worry_level % self.monkeys[i].test_operand == 0 {
+            let target = if worry_level % self.monkeys[i].divisor_test == 0 {
                 self.monkeys[i].on_true
             } else {
                 self.monkeys[i].on_false
@@ -173,7 +176,7 @@ impl FromStr for Puzzle {
             .split("\n\n")
             .map(|x| x.parse())
             .collect::<Result<Vec<Monkey>, _>>()?;
-        let factor = monkeys.iter().map(|x| x.test_operand).product();
+        let factor = monkeys.iter().map(|x| x.divisor_test).product();
         Ok(Puzzle { monkeys, factor })
     }
 }
