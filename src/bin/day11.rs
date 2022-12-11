@@ -27,18 +27,29 @@ impl FromStr for Operand {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "old" {
-            Ok(Operand::Old)
-        } else {
-            Ok(Operand::Literal(s.parse()?))
-        }
+        Ok(match s {
+            "old" => Operand::Old,
+            s => Operand::Literal(s.parse()?),
+        })
     }
 }
 
 #[derive(Clone, Copy)]
 enum Op {
-    Multiply,
     Add,
+    Multiply,
+}
+
+impl FromStr for Op {
+    type Err = Oops;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "+" => Op::Add,
+            "*" => Op::Multiply,
+            _ => Err(oops!("bad op"))?,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -56,56 +67,42 @@ impl FromStr for Monkey {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parser = s.lines().map(str::trim);
         // Skip monkey index.
-        parser.next();
-        let Some(items_line) = parser.next() else {
-            return Err(oops!("no starting items"));
-        };
-        let Some(items_list) = items_line.strip_prefix("Starting items: ") else {
-            return Err(oops!("invalid starting items format"));
-        };
-        let items = items_list
+        let mut parser = s.lines().skip(1).map(str::trim);
+        let items = parser
+            .next()
+            .and_then(|s| s.strip_prefix("Starting items: "))
+            .ok_or_else(|| oops!("no starting items"))?
             .split(", ")
             .map(|x| x.parse())
             .collect::<Result<_, _>>()?;
-        let Some(op_line) = parser.next() else {
-            return Err(oops!("no op line"));
-        };
-        let Some(op_str) = op_line.strip_prefix("Operation: new = old ") else {
-            return Err(oops!("invalid op line format"));
+        let Some(op_str) = parser.next().and_then(|s| s.strip_prefix("Operation: new = old ")) else {
+            return Err(oops!("no operation"));
         };
         let mut op_parser = op_str.split_whitespace();
-        let op = match op_parser.next() {
-            Some("*") => Op::Multiply,
-            Some("+") => Op::Add,
-            _ => Err(oops!("bad op"))?,
-        };
+        let op = op_parser
+            .next()
+            .ok_or_else(|| oops!("no operator"))?
+            .parse()?;
         let operand = op_parser
             .next()
             .ok_or_else(|| oops!("no operand"))?
             .parse()?;
-        let Some(test_line) = parser.next() else {
-            return Err(oops!("no test line"));
-        };
-        let Some(divisor_test) = test_line.strip_prefix("Test: divisible by ") else {
-            return Err(oops!("illegal test operand"));
-        };
-        let divisor_test = divisor_test.parse()?;
-        let Some(true_line) = parser.next() else {
-            return Err(oops!("no true line"));
-        };
-        let Some(true_str) = true_line.strip_prefix("If true: throw to monkey ") else {
-            return Err(oops!("invalid true line"));
-        };
-        let on_true = true_str.parse()?;
-        let Some(false_line) = parser.next() else {
-            return Err(oops!("no false line"));
-        };
-        let Some(false_str) = false_line.strip_prefix("If false: throw to monkey ") else {
-            return Err(oops!("invalid false line"));
-        };
-        let on_false = false_str.parse()?;
+        let divisor_test = parser
+            .next()
+            .and_then(|s| s.strip_prefix("Test: divisible by "))
+            .ok_or_else(|| oops!("no test"))?
+            .parse()?;
+        let on_true = parser
+            .next()
+            .and_then(|s| s.strip_prefix("If true: throw to monkey "))
+            .ok_or_else(|| oops!("no if true"))?
+            .parse()?;
+        let on_false = parser
+            .next()
+            .and_then(|s| s.strip_prefix("If false: throw to monkey "))
+            .ok_or_else(|| oops!("no if false"))?
+            .parse()?;
         Ok(Monkey {
             items,
             op,
