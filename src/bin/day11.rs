@@ -118,43 +118,44 @@ impl FromStr for Monkey {
 #[derive(Clone)]
 struct Puzzle {
     monkeys: Vec<Monkey>,
-    factor: usize,
 }
 
 impl Puzzle {
-    fn evaluate_monkey(&mut self, i: usize) {
-        let op = self.monkeys[i].op;
-        while let Some(worry_level) = self.monkeys[i].items.pop_front() {
-            let operand = match self.monkeys[i].operand {
-                Operand::Old => worry_level,
-                Operand::Literal(x) => x,
-            };
-            let worry_level = match op {
-                Op::Add => worry_level + operand,
-                Op::Multiply => worry_level * operand,
-            } / 3;
-            self.monkeys[i].inspections += 1;
-            let target = if worry_level % self.monkeys[i].divisor_test == 0 {
-                self.monkeys[i].on_true
-            } else {
-                self.monkeys[i].on_false
-            };
-            self.monkeys[target].items.push_back(worry_level);
+    fn calculate_mbl<F: Fn(usize) -> usize>(&mut self, rounds: usize, mitigate_worry: &F) -> usize {
+        for _ in 0..rounds {
+            for i in 0..self.monkeys.len() {
+                self.process_monkey(i, mitigate_worry);
+            }
         }
+
+        let mut counts = self
+            .monkeys
+            .iter()
+            .map(|x| x.inspections)
+            .collect::<Vec<_>>();
+        counts.sort_by(|a, b| b.cmp(a));
+        counts[0] * counts[1]
     }
 
-    fn evaluate_monkey2(&mut self, i: usize) {
+    fn process_monkey<F: Fn(usize) -> usize>(&mut self, i: usize, mitigate_worry: &F) {
         let op = self.monkeys[i].op;
-        while let Some(worry_level) = self.monkeys[i].items.pop_front() {
-            let operand = match self.monkeys[i].operand {
-                Operand::Old => worry_level,
+        let operand = self.monkeys[i].operand;
+        let apply_op = |current_worry| {
+            let operand = match operand {
                 Operand::Literal(x) => x,
+                Operand::Old => current_worry,
             };
-            let worry_level = match op {
-                Op::Add => worry_level + operand,
-                Op::Multiply => worry_level * operand,
-            } % self.factor;
-            self.monkeys[i].inspections += 1;
+            match op {
+                Op::Add => current_worry + operand,
+                Op::Multiply => current_worry * operand,
+            }
+        };
+
+        // Assume no cycles.
+        self.monkeys[i].inspections += self.monkeys[i].items.len();
+
+        while let Some(worry_level) = self.monkeys[i].items.pop_front() {
+            let worry_level = mitigate_worry(apply_op(worry_level));
             let target = if worry_level % self.monkeys[i].divisor_test == 0 {
                 self.monkeys[i].on_true
             } else {
@@ -173,8 +174,7 @@ impl FromStr for Puzzle {
             .split("\n\n")
             .map(|x| x.parse())
             .collect::<Result<Vec<Monkey>, _>>()?;
-        let factor = monkeys.iter().map(|x| x.divisor_test).product();
-        Ok(Puzzle { monkeys, factor })
+        Ok(Puzzle { monkeys })
     }
 }
 
@@ -184,38 +184,15 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 
 fn part1(puzzle: &Puzzle) -> usize {
     let mut puzzle = (*puzzle).clone();
-    let monkey_count = puzzle.monkeys.len();
-    for _ in 0..20 {
-        for i in 0..monkey_count {
-            puzzle.evaluate_monkey(i);
-        }
-    }
-
-    let mut counts = puzzle
-        .monkeys
-        .iter()
-        .map(|x| x.inspections)
-        .collect::<Vec<_>>();
-    counts.sort_by(|a, b| b.cmp(a));
-    counts[0] * counts[1]
+    let mitigate_worry = |x| x / 3;
+    puzzle.calculate_mbl(20, &mitigate_worry)
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
     let mut puzzle = (*puzzle).clone();
-    let monkey_count = puzzle.monkeys.len();
-    for _ in 0..10000 {
-        for i in 0..monkey_count {
-            puzzle.evaluate_monkey2(i);
-        }
-    }
-
-    let mut counts = puzzle
-        .monkeys
-        .iter()
-        .map(|x| x.inspections)
-        .collect::<Vec<_>>();
-    counts.sort_by(|a, b| b.cmp(a));
-    counts[0] * counts[1]
+    let factor: usize = puzzle.monkeys.iter().map(|x| x.divisor_test).product();
+    let mitigate_worry = |x| x % factor;
+    puzzle.calculate_mbl(10000, &mitigate_worry)
 }
 
 fn main() -> Result<(), Oops> {
