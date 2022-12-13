@@ -91,15 +91,7 @@ impl Eq for Data {}
 impl Ord for Data {
     fn cmp(&self, other: &Data) -> Ordering {
         match (self, other) {
-            (Data::List(lhs), Data::List(rhs)) => {
-                for (x, y) in lhs.iter().zip(rhs) {
-                    match x.cmp(y) {
-                        Ordering::Equal => continue,
-                        x => return x,
-                    }
-                }
-                lhs.len().cmp(&rhs.len())
-            }
+            (Data::List(lhs), Data::List(rhs)) => lhs.cmp(rhs),
             (Data::Integer(lhs), Data::Integer(rhs)) => lhs.cmp(rhs),
             (Data::List(_), Data::Integer(value)) => {
                 self.cmp(&Data::List(vec![Data::Integer(*value)]))
