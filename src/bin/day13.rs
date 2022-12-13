@@ -94,22 +94,11 @@ impl Ord for Data {
             (Data::List(lhs), Data::List(rhs)) => {
                 for (x, y) in lhs.iter().zip(rhs) {
                     match x.cmp(y) {
-                        Ordering::Less => {
-                            return Ordering::Less;
-                        }
-                        Ordering::Greater => {
-                            return Ordering::Greater;
-                        }
-                        Ordering::Equal => {
-                            continue;
-                        }
+                        Ordering::Equal => continue,
+                        x => return x,
                     }
                 }
-                match (lhs.len(), rhs.len()) {
-                    (ll, rl) if ll < rl => Ordering::Less,
-                    (ll, rl) if ll > rl => Ordering::Greater,
-                    _ => Ordering::Equal,
-                }
+                lhs.len().cmp(&rhs.len())
             }
             (Data::Integer(lhs), Data::Integer(rhs)) => lhs.cmp(rhs),
             (Data::List(_), Data::Integer(value)) => {
