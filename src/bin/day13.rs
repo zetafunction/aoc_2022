@@ -37,10 +37,10 @@ impl Data {
                 .and_then(|x| x.checked_add(c as u8 - '0' as u8))
                 .ok_or_else(|| oops!("integer too large"))?;
         }
-        return Ok(result);
+        Ok(result)
     }
 
-    fn parse_list(mut chars: &mut Peekable<Chars>) -> Result<Vec<Data>, Oops> {
+    fn parse_list(chars: &mut Peekable<Chars>) -> Result<Vec<Data>, Oops> {
         enum ParserState {
             Normal,
             WantItemDelimiter,
@@ -54,7 +54,7 @@ impl Data {
         loop {
             match (&state, chars.peek()) {
                 (ParserState::Normal, Some('[')) => {
-                    contents.push(Data::List(Self::parse_list(&mut chars)?));
+                    contents.push(Data::List(Self::parse_list(chars)?));
                     state = ParserState::WantItemDelimiter;
                     continue;
                 }
@@ -69,7 +69,7 @@ impl Data {
                     continue;
                 }
                 (ParserState::Normal, Some(c)) if c.is_ascii_digit() => {
-                    contents.push(Data::Integer(Self::parse_integer(&mut chars)?));
+                    contents.push(Data::Integer(Self::parse_integer(chars)?));
                     state = ParserState::WantItemDelimiter;
                     continue;
                 }
