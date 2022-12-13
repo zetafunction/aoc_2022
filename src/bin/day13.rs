@@ -58,16 +58,6 @@ impl Data {
                     state = ParserState::WantItemDelimiter;
                     continue;
                 }
-                (_, Some(']')) => {
-                    // Eat closing `]`.
-                    chars.next();
-                    return Ok(contents);
-                }
-                (_, Some(c)) if c.is_ascii_whitespace() => {
-                    // Eat whitespace.
-                    chars.next();
-                    continue;
-                }
                 (ParserState::Normal, Some(c)) if c.is_ascii_digit() => {
                     contents.push(Data::Integer(Self::parse_integer(chars)?));
                     state = ParserState::WantItemDelimiter;
@@ -79,8 +69,17 @@ impl Data {
                     state = ParserState::Normal;
                     continue;
                 }
-                (_, Some(c)) => return Err(oops!("unexpected char {}", c)),
-                (_, None) => return Err(oops!("unexpected end")),
+                (_, Some(c)) if c.is_ascii_whitespace() => {
+                    // Eat whitespace.
+                    chars.next();
+                    continue;
+                }
+                (_, Some(']')) => {
+                    // Eat closing `]`.
+                    chars.next();
+                    return Ok(contents);
+                }
+                (_, x) => return Err(oops!("unexpected state {:?}", x)),
             }
         }
     }
