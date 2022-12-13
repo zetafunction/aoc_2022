@@ -13,11 +13,11 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::cmp::Ordering;
+use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 enum Data {
     List(Vec<Data>),
     Value(u8),
@@ -138,6 +138,26 @@ fn is_ordered(lhs: &Data, rhs: &Data) -> Ordering {
     }
 }
 
+impl Eq for Data {}
+
+impl Ord for Data {
+    fn cmp(&self, other: &Data) -> Ordering {
+        is_ordered(self, other)
+    }
+}
+
+impl PartialEq<Data> for Data {
+    fn eq(&self, other: &Data) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl PartialOrd<Data> for Data {
+    fn partial_cmp(&self, other: &Data) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
@@ -152,12 +172,30 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                 None
             }
         })
-        .inspect(|x| println!("{}", x))
         .sum())
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(0)
+    let mut data = puzzle.data.clone();
+    let (first, second): (Vec<_>, Vec<_>) = data.drain(..).unzip();
+    let mut to_sort = vec![];
+    to_sort.extend(first);
+    to_sort.extend(second);
+    let divider_packet1 = Data::List(vec![Data::List(vec![Data::Value(2)])]);
+    let divider_packet2 = Data::List(vec![Data::List(vec![Data::Value(6)])]);
+    to_sort.push(divider_packet1.clone());
+    to_sort.push(divider_packet2.clone());
+    to_sort.sort();
+    Ok((1..)
+        .zip(to_sort.iter())
+        .filter_map(|(i, packet)| {
+            if packet == &divider_packet1 || packet == &divider_packet2 {
+                Some(i)
+            } else {
+                None
+            }
+        })
+        .product())
 }
 
 fn main() -> Result<(), Oops> {
