@@ -13,97 +13,76 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::cmp::{Ordering, PartialEq, PartialOrd};
+use std::cmp::Ordering;
 use std::io::{self, Read};
-use std::str::FromStr;
+use std::iter::Peekable;
+use std::str::{Chars, FromStr};
 
 #[derive(Clone, Debug)]
 enum Data {
     List(Vec<Data>),
-    Value(u8),
+    Integer(u8),
 }
 
-impl FromStr for Data {
-    type Err = Oops;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let chars = s.chars().collect::<Vec<_>>();
-        match chars[0] {
-            '[' => {
-                let mut contents = vec![];
-                let mut idx = 0;
-                // Last character must be ']'
-                while idx < chars.len() - 1 {
-                    idx += 1;
-                    match chars[idx] {
-                        ']' => {
-                            break;
-                        }
-                        ',' => {
-                            continue;
-                        }
-                        c if c.is_ascii_whitespace() => {
-                            continue;
-                        }
-                        '[' => {
-                            // Found a sub-list, need to find matching end.
-                            let mut nesting_count = 1;
-                            let start_idx = idx;
-                            while nesting_count > 0 {
-                                idx += 1;
-                                match chars[idx] {
-                                    '[' => nesting_count += 1,
-                                    ']' => nesting_count -= 1,
-                                    _ => (),
-                                }
-                            }
-                            // Consume the ']'.
-                            idx += 1;
-                            contents.push(s[start_idx..idx].parse()?);
-                        }
-
-                        c if c.is_ascii_digit() => {
-                            // Need to consume until next ] or ,
-                            let start_idx = idx;
-                            loop {
-                                idx += 1;
-                                if chars[idx] == ']' || chars[idx] == ',' {
-                                    break;
-                                }
-                            }
-                            contents.push(Data::Value(s[start_idx..idx].parse()?));
-                        }
-                        c => return Err(oops!("unexpected char {} @ {}", c, idx)),
-                    }
-                }
-                Ok(Data::List(contents))
+impl Data {
+    fn parse_integer(chars: &mut Peekable<Chars>) -> Result<u8, Oops> {
+        let mut result: u8 = 0;
+        while let Some(c) = chars.peek().copied() {
+            if !c.is_ascii_digit() {
+                break;
             }
-            c => Err(oops!("unexpected char {} @ 0", c)),
+            chars.next();
+            result = result
+                .checked_mul(10)
+                .and_then(|x| x.checked_add(c as u8 - '0' as u8))
+                .ok_or_else(|| oops!("integer too large"))?;
         }
+        return Ok(result);
     }
-}
 
-#[derive(Debug)]
-struct Puzzle {
-    data: Vec<(Data, Data)>,
-}
+    fn parse_list(mut chars: &mut Peekable<Chars>) -> Result<Vec<Data>, Oops> {
+        enum ParserState {
+            Normal,
+            WantItemDelimiter,
+        }
 
-impl FromStr for Puzzle {
-    type Err = Oops;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Puzzle {
-            data: s
-                .split("\n\n")
-                .map(|chunk| {
-                    if let Some((first, second)) = chunk.split_once('\n') {
-                        Ok((first.parse()?, second.parse()?))
-                    } else {
-                        Err(oops!("missing line?"))
-                    }
-                })
-                .collect::<Result<_, Oops>>()?,
-        })
+        if chars.next().ok_or_else(|| oops!("unexpected end"))? != '[' {
+            return Err(oops!("expected '['"));
+        }
+        let mut contents = vec![];
+        let mut state = ParserState::Normal;
+        loop {
+            match (&state, chars.peek()) {
+                (ParserState::Normal, Some('[')) => {
+                    contents.push(Data::List(Self::parse_list(&mut chars)?));
+                    state = ParserState::WantItemDelimiter;
+                    continue;
+                }
+                (_, Some(']')) => {
+                    // Eat closing `]`.
+                    chars.next();
+                    return Ok(contents);
+                }
+                (_, Some(c)) if c.is_ascii_whitespace() => {
+                    // Eat whitespace.
+                    chars.next();
+                    continue;
+                }
+                (ParserState::Normal, Some(c)) if c.is_ascii_digit() => {
+                    contents.push(Data::Integer(Self::parse_integer(&mut chars)?));
+                    state = ParserState::WantItemDelimiter;
+                    continue;
+                }
+                (ParserState::WantItemDelimiter, Some(',')) => {
+                    // Eat the `,`.
+                    chars.next();
+                    state = ParserState::Normal;
+                    continue;
+                }
+                (_, Some(c)) => return Err(oops!("unexpected char {}", c)),
+                (_, None) => return Err(oops!("unexpected end")),
+            }
+        }
     }
 }
 
@@ -132,9 +111,13 @@ impl Ord for Data {
                     _ => Ordering::Equal,
                 }
             }
-            (Data::Value(lhs), Data::Value(rhs)) => lhs.cmp(rhs),
-            (Data::List(_), Data::Value(value)) => self.cmp(&Data::List(vec![Data::Value(*value)])),
-            (Data::Value(value), Data::List(_)) => Data::List(vec![Data::Value(*value)]).cmp(other),
+            (Data::Integer(lhs), Data::Integer(rhs)) => lhs.cmp(rhs),
+            (Data::List(_), Data::Integer(value)) => {
+                self.cmp(&Data::List(vec![Data::Integer(*value)]))
+            }
+            (Data::Integer(value), Data::List(_)) => {
+                Data::List(vec![Data::Integer(*value)]).cmp(other)
+            }
         }
     }
 }
@@ -151,12 +134,44 @@ impl PartialOrd<Data> for Data {
     }
 }
 
+impl FromStr for Data {
+    type Err = Oops;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Data::List(Self::parse_list(&mut s.chars().peekable())?))
+    }
+}
+
+#[derive(Debug)]
+struct Puzzle {
+    data: Vec<(Data, Data)>,
+}
+
+impl FromStr for Puzzle {
+    type Err = Oops;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Puzzle {
+            data: s
+                .split("\n\n")
+                .map(|chunk| {
+                    if let Some((first, second)) = chunk.split_once('\n') {
+                        Ok((first.parse()?, second.parse()?))
+                    } else {
+                        Err(oops!("missing line?"))
+                    }
+                })
+                .collect::<Result<_, Oops>>()?,
+        })
+    }
+}
+
 fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok((1..)
+fn part1(puzzle: &Puzzle) -> usize {
+    (1..)
         .zip(puzzle.data.iter())
         .filter_map(|(i, (x, y))| {
             if x.cmp(y) == Ordering::Less {
@@ -165,21 +180,21 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                 None
             }
         })
-        .sum())
+        .sum()
 }
 
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
+fn part2(puzzle: &Puzzle) -> usize {
     let mut packet_pairs = puzzle.data.clone();
     let (first, second): (Vec<_>, Vec<_>) = packet_pairs.drain(..).unzip();
     let mut sorted_packets = vec![];
     sorted_packets.extend(first);
     sorted_packets.extend(second);
-    let first_divider = Data::List(vec![Data::List(vec![Data::Value(2)])]);
-    let second_divider = Data::List(vec![Data::List(vec![Data::Value(6)])]);
+    let first_divider = Data::List(vec![Data::List(vec![Data::Integer(2)])]);
+    let second_divider = Data::List(vec![Data::List(vec![Data::Integer(6)])]);
     sorted_packets.push(first_divider.clone());
     sorted_packets.push(second_divider.clone());
     sorted_packets.sort();
-    Ok((1..)
+    (1..)
         .zip(sorted_packets.iter())
         .filter_map(|(i, packet)| {
             if packet == &first_divider || packet == &second_divider {
@@ -188,7 +203,7 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
                 None
             }
         })
-        .product())
+        .product()
 }
 
 fn main() -> Result<(), Oops> {
@@ -198,8 +213,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -236,11 +251,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(13, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(13, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(140, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(140, part2(&parse(SAMPLE).unwrap()));
     }
 }
