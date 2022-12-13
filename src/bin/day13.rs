@@ -96,10 +96,11 @@ impl FromStr for Puzzle {
             data: s
                 .split("\n\n")
                 .map(|chunk| {
-                    let mut lines = chunk.lines();
-                    let packet1 = lines.next().ok_or_else(|| oops!("missing line"))?;
-                    let packet2 = lines.next().ok_or_else(|| oops!("missing line"))?;
-                    Ok((packet1.parse()?, packet2.parse()?))
+                    if let Some((first, second)) = chunk.split_once('\n') {
+                        Ok((first.parse()?, second.parse()?))
+                    } else {
+                        Err(oops!("missing line?"))
+                    }
                 })
                 .collect::<Result<_, Oops>>()?,
         })
@@ -168,20 +169,20 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut data = puzzle.data.clone();
-    let (first, second): (Vec<_>, Vec<_>) = data.drain(..).unzip();
-    let mut to_sort = vec![];
-    to_sort.extend(first);
-    to_sort.extend(second);
-    let divider_packet1 = Data::List(vec![Data::List(vec![Data::Value(2)])]);
-    let divider_packet2 = Data::List(vec![Data::List(vec![Data::Value(6)])]);
-    to_sort.push(divider_packet1.clone());
-    to_sort.push(divider_packet2.clone());
-    to_sort.sort();
+    let mut packet_pairs = puzzle.data.clone();
+    let (first, second): (Vec<_>, Vec<_>) = packet_pairs.drain(..).unzip();
+    let mut sorted_packets = vec![];
+    sorted_packets.extend(first);
+    sorted_packets.extend(second);
+    let first_divider = Data::List(vec![Data::List(vec![Data::Value(2)])]);
+    let second_divider = Data::List(vec![Data::List(vec![Data::Value(6)])]);
+    sorted_packets.push(first_divider.clone());
+    sorted_packets.push(second_divider.clone());
+    sorted_packets.sort();
     Ok((1..)
-        .zip(to_sort.iter())
+        .zip(sorted_packets.iter())
         .filter_map(|(i, packet)| {
-            if packet == &divider_packet1 || packet == &divider_packet2 {
+            if packet == &first_divider || packet == &second_divider {
                 Some(i)
             } else {
                 None
@@ -235,11 +236,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(3579124689, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(13, part1(&parse(SAMPLE).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(140, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
