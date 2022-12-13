@@ -169,15 +169,16 @@ fn part2(puzzle: &Puzzle) -> usize {
     let mut sorted_packets = vec![];
     sorted_packets.extend(first);
     sorted_packets.extend(second);
-    let first_divider = Data::List(vec![Data::List(vec![Data::Integer(2)])]);
-    let second_divider = Data::List(vec![Data::List(vec![Data::Integer(6)])]);
-    sorted_packets.push(first_divider.clone());
-    sorted_packets.push(second_divider.clone());
+    let dividers = [
+        Data::List(vec![Data::List(vec![Data::Integer(2)])]),
+        Data::List(vec![Data::List(vec![Data::Integer(6)])]),
+    ];
+    sorted_packets.extend(dividers.clone());
     sorted_packets.sort();
     (1..)
         .zip(sorted_packets.iter())
         .filter_map(|(i, packet)| {
-            if packet == &first_divider || packet == &second_divider {
+            if dividers.contains(packet) {
                 Some(i)
             } else {
                 None
