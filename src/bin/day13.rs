@@ -76,9 +76,9 @@ impl FromStr for Data {
                         c => return Err(oops!("unexpected char {} @ {}", c, idx)),
                     }
                 }
-                return Ok(Data::List(contents));
+                Ok(Data::List(contents))
             }
-            c => return Err(oops!("unexpected char {} @ 0", c)),
+            c => Err(oops!("unexpected char {} @ 0", c)),
         }
     }
 }
@@ -106,43 +106,35 @@ impl FromStr for Puzzle {
     }
 }
 
-fn is_ordered(lhs: &Data, rhs: &Data) -> Ordering {
-    match (lhs, rhs) {
-        (Data::List(lhs), Data::List(rhs)) => {
-            for (x, y) in lhs.iter().zip(rhs) {
-                match is_ordered(x, y) {
-                    Ordering::Less => {
-                        return Ordering::Less;
-                    }
-                    Ordering::Greater => {
-                        return Ordering::Greater;
-                    }
-                    Ordering::Equal => {
-                        continue;
-                    }
-                }
-            }
-            match (lhs.len(), rhs.len()) {
-                (ll, rl) if ll < rl => Ordering::Less,
-                (ll, rl) if ll > rl => Ordering::Greater,
-                _ => Ordering::Equal,
-            }
-        }
-        (Data::Value(lhs), Data::Value(rhs)) => lhs.cmp(rhs),
-        (Data::List(_), Data::Value(value)) => {
-            is_ordered(lhs, &Data::List(vec![Data::Value(*value)]))
-        }
-        (Data::Value(value), Data::List(_)) => {
-            is_ordered(&Data::List(vec![Data::Value(*value)]), rhs)
-        }
-    }
-}
-
 impl Eq for Data {}
 
 impl Ord for Data {
     fn cmp(&self, other: &Data) -> Ordering {
-        is_ordered(self, other)
+        match (self, other) {
+            (Data::List(lhs), Data::List(rhs)) => {
+                for (x, y) in lhs.iter().zip(rhs) {
+                    match x.cmp(y) {
+                        Ordering::Less => {
+                            return Ordering::Less;
+                        }
+                        Ordering::Greater => {
+                            return Ordering::Greater;
+                        }
+                        Ordering::Equal => {
+                            continue;
+                        }
+                    }
+                }
+                match (lhs.len(), rhs.len()) {
+                    (ll, rl) if ll < rl => Ordering::Less,
+                    (ll, rl) if ll > rl => Ordering::Greater,
+                    _ => Ordering::Equal,
+                }
+            }
+            (Data::Value(lhs), Data::Value(rhs)) => lhs.cmp(rhs),
+            (Data::List(_), Data::Value(value)) => self.cmp(&Data::List(vec![Data::Value(*value)])),
+            (Data::Value(value), Data::List(_)) => Data::List(vec![Data::Value(*value)]).cmp(other),
+        }
     }
 }
 
@@ -166,7 +158,7 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
     Ok((1..)
         .zip(puzzle.data.iter())
         .filter_map(|(i, (x, y))| {
-            if is_ordered(x, y) == Ordering::Less {
+            if x.cmp(y) == Ordering::Less {
                 Some(i)
             } else {
                 None
