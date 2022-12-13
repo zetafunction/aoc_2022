@@ -88,7 +88,7 @@ impl Data {
 impl Eq for Data {}
 
 impl Ord for Data {
-    fn cmp(&self, other: &Data) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             (Data::List(lhs), Data::List(rhs)) => lhs.cmp(rhs),
             (Data::Integer(lhs), Data::Integer(rhs)) => lhs.cmp(rhs),
@@ -102,14 +102,14 @@ impl Ord for Data {
     }
 }
 
-impl PartialEq<Data> for Data {
-    fn eq(&self, other: &Data) -> bool {
+impl PartialEq for Data {
+    fn eq(&self, other: &Self) -> bool {
         self.cmp(other) == Ordering::Equal
     }
 }
 
-impl PartialOrd<Data> for Data {
-    fn partial_cmp(&self, other: &Data) -> Option<Ordering> {
+impl PartialOrd for Data {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
