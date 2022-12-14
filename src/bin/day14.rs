@@ -17,22 +17,61 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 enum Material {
     Air,
     Rock,
     Sand,
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct Point {
+    x: i64,
+    y: i64,
+}
+
+impl Point {
+    fn new(x: i64, y: i64) -> Self {
+        Point { x, y }
+    }
+}
+
 #[derive(Clone)]
 struct Puzzle {
-    grid: HashMap<(i64, i64), Material>,
-    x_min: i64,
-    x_max: i64,
-    y_max: i64,
+    grid: HashMap<Point, Material>,
+    top_left: Point,
+    bottom_right: Point,
 }
 
 impl Puzzle {
+    fn draw_line(&mut self, p1: &Point, p2: &Point, material: Material) {
+        let x1 = std::cmp::min(p1.x, p2.x);
+        let x2 = std::cmp::max(p1.x, p2.x);
+        let y1 = std::cmp::min(p1.y, p2.y);
+        let y2 = std::cmp::min(p1.y, p2.y);
+
+        // This assumes the lines are always strictly horizontal or strictly vertical.
+        for x in x1..=x2 {
+            for y in y1..=y2 {
+                self.grid.insert(Point::new(x, y), material);
+            }
+        }
+
+        self.top_left.x = std::cmp::min(self.top_left.x, x1);
+        self.top_left.y = std::cmp::min(self.top_left.y, y1);
+        self.bottom_right.x = std::cmp::max(self.bottom_right.x, x2);
+        self.bottom_right.y = std::cmp::max(self.bottom_right.y, y2);
+    }
+
+    fn fill(&mut self, material: Material) {
+        for x in self.top_left.x..=self.bottom_right.x {
+            for y in self.top_left.y..=self.bottom_right.y {
+                self.grid.entry(Point::new(x, y)).or_insert(Material::Air);
+            }
+        }
+    }
+
+    /*
     fn print(&self) {
         for y in 0..=self.y_max {
             println!(
@@ -47,53 +86,33 @@ impl Puzzle {
             );
         }
     }
+    */
 }
 
 impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut grid = HashMap::new();
-        let mut x_min = i64::MAX;
-        let mut x_max = i64::MIN;
-        let mut y_max = i64::MIN;
+        let mut puzzle = Puzzle {
+            grid: HashMap::new(),
+            top_left: Point::new(i64::MAX, i64::MAX),
+            bottom_right: Point::new(i64::MIN, i64::MIN),
+        };
         for line in s.lines() {
-            let mut rocks = vec![];
-            let mut prev_point = None;
+            let prev_pt = None;
             for point in line.split(" -> ") {
-                let (x, y) = point.split_once(',').unwrap();
-                let x = x.parse::<i64>().unwrap();
-                let y = y.parse::<i64>().unwrap();
-                match prev_point {
-                    None => (),
-                    Some((prev_x, prev_y)) => {
-                        let x1 = std::cmp::min(prev_x, x);
-                        let x2 = std::cmp::max(prev_x, x);
-                        let y1 = std::cmp::min(prev_y, y);
-                        let y2 = std::cmp::max(prev_y, y);
-                        rocks.extend((x1..=x2).flat_map(|x| (y1..=y2).map(move |y| (x, y))));
-                    }
+                let (x, y) = point
+                    .split_once(',')
+                    .ok_or_else(|| oops!("invalid point"))?;
+                let cur_pt = Point::new(x.parse()?, y.parse()?);
+                if let Some(prev_pt) = prev_pt {
+                    puzzle.draw_line(&prev_pt, &cur_pt, Material::Rock);
                 }
-                prev_point = Some((x, y));
-            }
-            for (x, y) in rocks {
-                x_min = std::cmp::min(x, x_min);
-                x_max = std::cmp::max(x, x_max);
-                y_max = std::cmp::max(y, y_max);
-                grid.insert((x, y), Material::Rock);
+                prev_pt = Some(cur_pt);
             }
         }
-        for x in x_min..=x_max {
-            for y in 0..=y_max {
-                grid.entry((x, y)).or_insert(Material::Air);
-            }
-        }
-        Ok(Puzzle {
-            grid,
-            x_min,
-            x_max,
-            y_max,
-        })
+        puzzle.fill(Material::Air);
+        Ok(puzzle)
     }
 }
 
