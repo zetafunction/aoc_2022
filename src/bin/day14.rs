@@ -26,10 +26,10 @@ enum Material {
 
 #[derive(Clone)]
 struct Puzzle {
-    grid: HashMap<(usize, usize), Material>,
-    x_min: usize,
-    x_max: usize,
-    y_max: usize,
+    grid: HashMap<(i64, i64), Material>,
+    x_min: i64,
+    x_max: i64,
+    y_max: i64,
 }
 
 impl Puzzle {
@@ -54,16 +54,16 @@ impl FromStr for Puzzle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut grid = HashMap::new();
-        let mut x_min = usize::MAX;
-        let mut x_max = usize::MIN;
-        let mut y_max = usize::MIN;
+        let mut x_min = i64::MAX;
+        let mut x_max = i64::MIN;
+        let mut y_max = i64::MIN;
         for line in s.lines() {
             let mut rocks = vec![];
             let mut prev_point = None;
             for point in line.split(" -> ") {
                 let (x, y) = point.split_once(',').unwrap();
-                let x = x.parse::<usize>().unwrap();
-                let y = y.parse::<usize>().unwrap();
+                let x = x.parse::<i64>().unwrap();
+                let y = y.parse::<i64>().unwrap();
                 match prev_point {
                     None => (),
                     Some((prev_x, prev_y)) => {
@@ -143,15 +143,15 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    fn get_material(
-        y_max: usize,
-        grid: &HashMap<(usize, usize), Material>,
-        (x, y): (usize, usize),
-    ) -> Option<&Material> {
-        if y == y_max + 2 {
+    fn get_material<'a>(
+        y_max: &i64,
+        grid: &'a HashMap<(i64, i64), Material>,
+        (x, y): &(i64, i64),
+    ) -> Option<&'a Material> {
+        if *y == y_max + 2 {
             Some(&Material::Rock)
         } else {
-            grid.get(&(x, y))
+            grid.get(&(*x, *y))
         }
     }
 
@@ -163,7 +163,7 @@ fn part2(puzzle: &Puzzle) -> usize {
         let mut sand_pos = (500, 0);
         loop {
             let down_pos = (sand_pos.0, sand_pos.1 + 1);
-            match get_material(puzzle.y_max, &puzzle.grid, down_pos) {
+            match get_material(&puzzle.y_max, &puzzle.grid, &down_pos) {
                 Some(Material::Air) | None => {
                     sand_pos = down_pos;
                     continue;
@@ -171,7 +171,7 @@ fn part2(puzzle: &Puzzle) -> usize {
                 Some(_) => (),
             }
             let left_pos = (sand_pos.0 - 1, sand_pos.1 + 1);
-            match get_material(puzzle.y_max, &puzzle.grid, left_pos) {
+            match get_material(&puzzle.y_max, &puzzle.grid, &left_pos) {
                 Some(Material::Air) | None => {
                     sand_pos = left_pos;
                     continue;
@@ -179,7 +179,7 @@ fn part2(puzzle: &Puzzle) -> usize {
                 Some(_) => (),
             }
             let right_pos = (sand_pos.0 + 1, sand_pos.1 + 1);
-            match get_material(puzzle.y_max, &puzzle.grid, right_pos) {
+            match get_material(&puzzle.y_max, &puzzle.grid, &right_pos) {
                 Some(Material::Air) | None => {
                     sand_pos = right_pos;
                     continue;
