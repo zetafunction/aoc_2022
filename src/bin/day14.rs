@@ -22,6 +22,7 @@ enum Material {
     Air,
     Rock,
     Sand,
+    Source,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -44,16 +45,16 @@ struct Puzzle {
 }
 
 impl Puzzle {
-    fn draw_line(&mut self, p1: &Point, p2: &Point, material: Material) {
+    fn draw_line(&mut self, p1: &Point, p2: &Point, m: Material) {
         let x1 = std::cmp::min(p1.x, p2.x);
         let x2 = std::cmp::max(p1.x, p2.x);
         let y1 = std::cmp::min(p1.y, p2.y);
-        let y2 = std::cmp::min(p1.y, p2.y);
+        let y2 = std::cmp::max(p1.y, p2.y);
 
         // This assumes the lines are always strictly horizontal or strictly vertical.
         for x in x1..=x2 {
             for y in y1..=y2 {
-                self.grid.insert(Point::new(x, y), material);
+                self.grid.insert(Point::new(x, y), m);
             }
         }
 
@@ -63,30 +64,41 @@ impl Puzzle {
         self.bottom_right.y = std::cmp::max(self.bottom_right.y, y2);
     }
 
-    fn fill(&mut self, material: Material) {
+    fn fill(&mut self, m: Material) {
         for x in self.top_left.x..=self.bottom_right.x {
             for y in self.top_left.y..=self.bottom_right.y {
-                self.grid.entry(Point::new(x, y)).or_insert(Material::Air);
+                self.grid.entry(Point::new(x, y)).or_insert(m);
             }
         }
     }
 
-    /*
-    fn print(&self) {
-        for y in 0..=self.y_max {
-            println!(
+    fn set(&mut self, p: Point, m: Material) {
+        self.grid.insert(p, m);
+        self.top_left.x = std::cmp::min(self.top_left.x, p.x);
+        self.top_left.y = std::cmp::min(self.top_left.y, p.y);
+        self.bottom_right.x = std::cmp::max(self.bottom_right.x, p.x);
+        self.bottom_right.y = std::cmp::max(self.bottom_right.y, p.y);
+    }
+}
+
+impl std::fmt::Debug for Puzzle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for y in self.top_left.y..=self.bottom_right.y {
+            writeln!(
+                f,
                 "{}",
-                (self.x_min..=self.x_max)
-                    .map(|x| match self.grid.get(&(x, y)).unwrap() {
+                (self.top_left.x..=self.bottom_right.x)
+                    .map(|x| match self.grid.get(&Point::new(x, y)).unwrap() {
                         Material::Air => '.',
                         Material::Rock => '#',
                         Material::Sand => 'O',
+                        Material::Source => '+',
                     })
                     .collect::<String>()
-            );
+            )?;
         }
+        Ok(())
     }
-    */
 }
 
 impl FromStr for Puzzle {
@@ -99,7 +111,7 @@ impl FromStr for Puzzle {
             bottom_right: Point::new(i64::MIN, i64::MIN),
         };
         for line in s.lines() {
-            let prev_pt = None;
+            let mut prev_pt = None;
             for point in line.split(" -> ") {
                 let (x, y) = point
                     .split_once(',')
@@ -111,106 +123,92 @@ impl FromStr for Puzzle {
                 prev_pt = Some(cur_pt);
             }
         }
+        // Per the problem, (500, 0) is the source of sand.
+        puzzle.set(Point::new(500, 0), Material::Source);
         puzzle.fill(Material::Air);
         Ok(puzzle)
     }
 }
 
 fn parse(input: &str) -> Result<Puzzle, Oops> {
-    input.parse()
+    match input.parse() {
+        Ok(p) => {
+            println!("{:?}", p);
+            Ok(p)
+        }
+        e => e,
+    }
+}
+
+fn drop_sand(puzzle: &Puzzle, position: &Point) -> Option<Point> {
+    let mut current = *position;
+    loop {
+        let down = Point::new(current.x, current.y + 1);
+        match puzzle.grid.get(&down) {
+            Some(Material::Air) => {
+                current = down;
+                continue;
+            }
+            None => return None,
+            _ => (),
+        }
+        let down_left = Point::new(current.x - 1, current.y + 1);
+        match puzzle.grid.get(&down_left) {
+            Some(Material::Air) => {
+                current = down_left;
+                continue;
+            }
+            None => return None,
+            _ => (),
+        }
+        let down_right = Point::new(current.x + 1, current.y + 1);
+        match puzzle.grid.get(&down_right) {
+            Some(Material::Air) => {
+                current = down_right;
+                continue;
+            }
+            None => return None,
+            _ => (),
+        }
+        if current == *position {
+            return None;
+        } else {
+            return Some(current);
+        }
+    }
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
-    let mut grid = puzzle.grid.clone();
-    let mut sand_count = 0;
+    let mut puzzle = puzzle.clone();
     loop {
-        let mut sand_pos = (500, 0);
-        loop {
-            let down_pos = (sand_pos.0, sand_pos.1 + 1);
-            match grid.get(&down_pos) {
-                Some(Material::Air) => {
-                    sand_pos = down_pos;
-                    continue;
-                }
-                Some(_) => (),
-                None => return sand_count,
-            }
-            let left_pos = (sand_pos.0 - 1, sand_pos.1 + 1);
-            match grid.get(&left_pos) {
-                Some(Material::Air) => {
-                    sand_pos = left_pos;
-                    continue;
-                }
-                Some(_) => (),
-                None => return sand_count,
-            }
-            let right_pos = (sand_pos.0 + 1, sand_pos.1 + 1);
-            match grid.get(&right_pos) {
-                Some(Material::Air) => {
-                    sand_pos = right_pos;
-                    continue;
-                }
-                Some(_) => (),
-                None => return sand_count,
-            }
-            // Otherwise, the sand cannot fall any further. Mark it.
-            grid.insert(sand_pos, Material::Sand);
-            break;
+        for x in 0.. {
+            let Some(position) = drop_sand(&puzzle, &Point::new(500, 0)) else {
+                println!("{:?}", puzzle);
+                return x;
+            };
+            puzzle.set(position, Material::Sand);
         }
-        sand_count += 1;
     }
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    fn get_material<'a>(
-        y_max: &i64,
-        grid: &'a HashMap<(i64, i64), Material>,
-        (x, y): &(i64, i64),
-    ) -> Option<&'a Material> {
-        if *y == y_max + 2 {
-            Some(&Material::Rock)
-        } else {
-            grid.get(&(*x, *y))
-        }
-    }
-
     let mut puzzle = puzzle.clone();
-    let mut sand_count = 0;
+    let bottom = puzzle.bottom_right.y + 2;
+    let height = bottom - puzzle.top_left.y;
+    puzzle.draw_line(
+        &Point::new(500 - height, bottom),
+        &Point::new(500 + height, bottom),
+        Material::Rock,
+    );
+    puzzle.fill(Material::Air);
 
     loop {
-        sand_count += 1;
-        let mut sand_pos = (500, 0);
-        loop {
-            let down_pos = (sand_pos.0, sand_pos.1 + 1);
-            match get_material(&puzzle.y_max, &puzzle.grid, &down_pos) {
-                Some(Material::Air) | None => {
-                    sand_pos = down_pos;
-                    continue;
-                }
-                Some(_) => (),
-            }
-            let left_pos = (sand_pos.0 - 1, sand_pos.1 + 1);
-            match get_material(&puzzle.y_max, &puzzle.grid, &left_pos) {
-                Some(Material::Air) | None => {
-                    sand_pos = left_pos;
-                    continue;
-                }
-                Some(_) => (),
-            }
-            let right_pos = (sand_pos.0 + 1, sand_pos.1 + 1);
-            match get_material(&puzzle.y_max, &puzzle.grid, &right_pos) {
-                Some(Material::Air) | None => {
-                    sand_pos = right_pos;
-                    continue;
-                }
-                Some(_) => (),
-            }
-            if sand_pos == (500, 0) {
-                return sand_count;
-            }
-            // Otherwise, the sand cannot fall any further. Mark it.
-            puzzle.grid.insert(sand_pos, Material::Sand);
-            break;
+        for x in 1.. {
+            let Some(position) = drop_sand(&puzzle, &Point::new(500, 0)) else {
+                println!("{:?}", puzzle);
+                return x;
+            };
+            puzzle.set(position, Material::Sand);
         }
     }
 }
