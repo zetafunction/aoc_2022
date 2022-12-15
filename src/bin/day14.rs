@@ -172,9 +172,8 @@ fn drop_sand(puzzle: &Puzzle, position: &Point) -> Option<Point> {
         }
         if current == *position {
             return None;
-        } else {
-            return Some(current);
         }
+        return Some(current);
     }
 }
 
