@@ -13,15 +13,45 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io::{self, Read};
 use std::str::FromStr;
 
 #[derive(Debug)]
+struct Sensor {
+    loc: (i64, i64),
+    beacon_free_radius: i64,
+}
+
+#[derive(Debug)]
 struct Puzzle {
-    beacons: Vec<(i64, i64)>,
-    sensors: Vec<(i64, i64)>,
+    sensors: Vec<Sensor>,
+    beacons: HashSet<(i64, i64)>,
+}
+
+impl Puzzle {
+    fn get_max_skip_sensor(&self, loc: &(i64, i64)) -> Option<(&Sensor, i64)> {
+        self.sensors.iter().fold(None, |acc, s| {
+            if s.beacon_free_radius - calc_dist(&s.loc, loc) < 0 {
+                acc
+            } else {
+                let skip = s.beacon_free_radius - (s.loc.1 - loc.1).abs();
+                if let Some((_, acc_skip)) = acc {
+                    if skip > acc_skip {
+                        Some((s, skip))
+                    } else {
+                        acc
+                    }
+                } else {
+                    Some((s, skip))
+                }
+            }
+        })
+    }
+}
+
+fn calc_dist(p1: &(i64, i64), p2: &(i64, i64)) -> i64 {
+    (p1.0 - p2.0).abs() + (p1.1 - p2.1).abs()
 }
 
 fn parse_point(s: &str) -> Option<(i64, i64)> {
@@ -35,8 +65,8 @@ impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut beacons = vec![];
-        let mut sensors = vec![];
+        let mut sensor_locs = vec![];
+        let mut beacon_locs = HashSet::new();
         for line in s.lines() {
             let (sensor, beacon) = line
                 .split_once(": closest beacon is at ")
@@ -44,10 +74,23 @@ impl FromStr for Puzzle {
             let Some(sensor) = sensor.strip_prefix("Sensor at ") else {
                 return Err(oops!("unexpected sensor format"));
             };
-            beacons.push(parse_point(beacon).ok_or_else(|| oops!("no beacon coord"))?);
-            sensors.push(parse_point(sensor).ok_or_else(|| oops!("no sensor coord"))?);
+            sensor_locs.push(parse_point(sensor).ok_or_else(|| oops!("no sensor coord"))?);
+            beacon_locs.insert(parse_point(beacon).ok_or_else(|| oops!("no beacon coord"))?);
         }
-        Ok(Puzzle { beacons, sensors })
+        Ok(Puzzle {
+            sensors: sensor_locs
+                .iter()
+                .map(|s_loc| Sensor {
+                    loc: *s_loc,
+                    beacon_free_radius: beacon_locs
+                        .iter()
+                        .map(|b_loc| calc_dist(s_loc, b_loc))
+                        .min()
+                        .unwrap(),
+                })
+                .collect(),
+            beacons: beacon_locs,
+        })
     }
 }
 
@@ -57,85 +100,46 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     r
 }
 
-fn distance(p1: &(i64, i64), p2: &(i64, i64)) -> i64 {
-    (p1.0 - p2.0).abs() + (p1.1 - p2.1).abs()
-}
-
 fn part1(puzzle: &Puzzle, y: i64) -> Result<usize, Oops> {
-    let mut grid = HashSet::new();
-    let sensors: HashSet<_> = puzzle.sensors.iter().collect();
-    let beacons: HashSet<_> = puzzle.beacons.iter().collect();
-    for sensor in &puzzle.sensors {
-        let min_distance = puzzle
-            .beacons
-            .iter()
-            .map(|beacon| distance(&beacon, &sensor))
-            .min()
-            .unwrap();
-        if y < sensor.1 - min_distance || y > sensor.1 + min_distance {
+    // Given a fixed `y`, find the min `x` and max `x` that can possibly be covered by a sensor.
+    let (min_x, max_x) = puzzle.sensors.iter().fold((i64::MAX, i64::MIN), |a, s| {
+        let leftover = (s.loc.1 - y).abs();
+        if leftover > s.beacon_free_radius {
+            a
+        } else {
+            (
+                std::cmp::min(s.loc.0 - leftover, a.0),
+                std::cmp::max(s.loc.0 + leftover, a.1),
+            )
+        }
+    });
+    let mut x = min_x;
+    let mut c = 0;
+    while x <= max_x {
+        let Some((sensor, skip)) = puzzle.get_max_skip_sensor(&(x, y)) else {
+            x += 1;
             continue;
-        }
-        for x in sensor.0 - min_distance..=sensor.0 + min_distance {
-            if min_distance >= distance(&sensor, &(x, y))
-                && !sensors.contains(&(x, y))
-                && !beacons.contains(&(x, y))
-            {
-                grid.insert((x, y));
-            }
-        }
+        };
+        c += (sensor.loc.0 + skip + 1) - x;
+        x = sensor.loc.0 + skip + 1;
     }
-    Ok(grid.len())
+    c -= puzzle.sensors.iter().filter(|s| s.loc.1 == y).count() as i64;
+    c -= puzzle.beacons.iter().filter(|b| b.1 == y).count() as i64;
+    Ok(c as usize)
 }
 
 fn part2(puzzle: &Puzzle, (max_x, max_y): (i64, i64)) -> Result<usize, Oops> {
-    let sensor_min_distance = puzzle
-        .sensors
-        .iter()
-        .map(|sensor| {
-            (
-                sensor,
-                puzzle.beacons.iter().fold(i64::MAX, |current, beacon| {
-                    std::cmp::min(current, distance(&beacon, &sensor))
-                }),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    println!("{:?}", sensor_min_distance);
     let mut x = 0;
     for y in 0..=max_y {
         while x <= max_x {
-            let mut closest_sensor = None;
-            let mut closest_distance = None;
-            for (sensor, sensor_distance) in &sensor_min_distance {
-                let d = distance(sensor, &(x, y));
-                if d > *sensor_distance {
-                    continue;
-                }
-                let remaining_distance = sensor_distance - d;
-                match closest_distance {
-                    None => {
-                        closest_sensor = Some(*sensor);
-                        closest_distance = Some(remaining_distance);
-                    }
-                    Some(x) => {
-                        if remaining_distance > x {
-                            closest_sensor = Some(*sensor);
-                            closest_distance = Some(remaining_distance);
-                        }
-                    }
-                }
-            }
-            let Some(closest_distance) = closest_distance else {
+            let Some((sensor, skip)) = puzzle.get_max_skip_sensor(&(x, y)) else {
                 return Ok((x * 4_000_000 + y) as usize);
             };
-            let closest_sensor = closest_sensor.unwrap();
-            let remaining_x =
-                sensor_min_distance.get(&closest_sensor).unwrap() - (closest_sensor.1 - y).abs();
-            x = std::cmp::max(closest_sensor.0 + remaining_x, x + 1);
+            x = sensor.loc.0 + skip + 1;
         }
         x = 0;
     }
-    Err(oops!("bah"))
+    Err(oops!("no answer"))
 }
 
 fn main() -> Result<(), Oops> {
