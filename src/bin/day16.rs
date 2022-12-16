@@ -93,15 +93,29 @@ impl Puzzle {
             return so_far;
         }
 
-        let mut best = so_far;
-        let max_remaining = &targets[assigned..]
+        // Calculate an upper bound for the maximum possible pressure that can still be relieved.
+        let max_possible_remaining = &targets[assigned..]
             .iter()
-            .map(|r| remaining * self.flow_for(*r))
-            .sum::<i32>();
+            .map(|r| {
+                let min_distance = std::cmp::min(
+                    self.distance_between(dest1.0, r),
+                    self.distance_between(dest1.0, r),
+                );
+                if remaining > min_distance {
+                    (remaining - min_distance) * self.flow_for(*r)
+                } else {
+                    0
+                }
+            })
+            .sum();
+
+        // The best seen key is the remaining unassigned valves ordered lexicographically.
         let mut best_seen_key = targets[assigned..].to_vec();
         best_seen_key.sort();
         if let Some(best_seen) = best_seen.get(&best_seen_key) {
-            if *best_seen > max_remaining + so_far {
+            if *best_seen > max_possible_remaining + so_far {
+                // There is already another path that uses the remaining unassigned valves in a
+                // more efficient way: no need to waste more time exploring this branch.
                 return 0;
             }
         }
@@ -111,7 +125,9 @@ impl Puzzle {
         } else {
             (dest2, dest1)
         };
+
         assert!(dest_to_update.1 == 0);
+        let mut best = so_far;
 
         for x in assigned..targets.len() {
             targets.swap(x, assigned);
