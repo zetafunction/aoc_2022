@@ -27,7 +27,7 @@ struct Valve {
 
 #[derive(Debug)]
 struct Puzzle {
-    valves: HashMap<String, Valve>,
+    flows: HashMap<String, i32>,
     distances: HashMap<String, HashMap<String, i32>>,
 }
 
@@ -50,9 +50,9 @@ impl Puzzle {
     fn try_path(&self, current: &str, state: &mut State) -> i32 {
         // Only need to visit unvisited valves with non-zero flow.
         let target_valves = self
-            .valves
+            .flows
             .iter()
-            .filter(|(name, valve)| valve.flow > 0 && !state.visited.contains(*name))
+            .filter(|(name, &flow)| flow > 0 && !state.visited.contains(*name))
             .map(|(name, _)| name)
             .collect::<Vec<_>>();
 
@@ -70,7 +70,7 @@ impl Puzzle {
             state.remaining -= distance_to_v;
             state.visited.insert(v.clone());
             let flow_from_path = self.try_path(v, state);
-            let candidate = flow_from_path + state.remaining * self.valves.get(v).unwrap().flow;
+            let candidate = flow_from_path + state.remaining * self.flow_for(v);
             best = std::cmp::max(best, candidate);
             state.visited.remove(v);
             state.remaining += distance_to_v;
@@ -78,7 +78,7 @@ impl Puzzle {
         best
     }
 
-    fn try_elephant_path2<'a>(
+    fn try_elephant_path<'a>(
         &self,
         targets: &mut Vec<&'a str>,
         assigned: usize,
@@ -88,6 +88,7 @@ impl Puzzle {
         so_far: i32,
         remaining: i32,
     ) -> i32 {
+        // All valves have been visited.
         if assigned == targets.len() {
             return so_far;
         }
@@ -95,7 +96,7 @@ impl Puzzle {
         let mut best = so_far;
         let max_remaining = &targets[assigned..]
             .iter()
-            .map(|r| remaining * self.valves.get(*r).unwrap().flow)
+            .map(|r| remaining * self.flow_for(*r))
             .sum::<i32>();
         let mut best_seen_key = targets[assigned..].to_vec();
         best_seen_key.sort();
@@ -124,14 +125,13 @@ impl Puzzle {
                 continue;
             }
             let advance_by = std::cmp::min(dest_to_keep.1, next_dest.1);
-            let result = self.try_elephant_path2(
+            let result = self.try_elephant_path(
                 targets,
                 assigned + 1,
                 best_seen,
                 (next_dest.0, next_dest.1 - advance_by),
                 (dest_to_keep.0, dest_to_keep.1 - advance_by),
-                so_far
-                    + (remaining - next_dest.1) * self.valves.get(targets[assigned]).unwrap().flow,
+                so_far + (remaining - next_dest.1) * self.flow_for(targets[assigned]),
                 remaining - advance_by,
             );
 
@@ -154,6 +154,10 @@ impl Puzzle {
 
     fn distance_between(&self, from: &str, to: &str) -> i32 {
         return *self.distances.get(from).unwrap().get(to).unwrap();
+    }
+
+    fn flow_for(&self, name: &str) -> i32 {
+        *self.flows.get(name).unwrap()
     }
 
     fn calculate_distances(
@@ -215,7 +219,11 @@ impl FromStr for Puzzle {
             })
             .collect::<Result<HashMap<_, _>, _>>()?;
         let distances = Self::calculate_distances(&valves);
-        Ok(Puzzle { valves, distances })
+        let flows = valves
+            .into_iter()
+            .filter_map(|(k, v)| if v.flow > 0 { Some((k, v.flow)) } else { None })
+            .collect();
+        Ok(Puzzle { flows, distances })
     }
 }
 
@@ -229,13 +237,8 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut targets = puzzle
-        .valves
-        .keys()
-        .filter(|v| puzzle.valves.get(*v).unwrap().flow > 0)
-        .map(|s| s.as_str())
-        .collect();
-    Ok(puzzle.try_elephant_path2(
+    let mut targets = puzzle.flows.keys().map(String::as_str).collect();
+    Ok(puzzle.try_elephant_path(
         &mut targets,
         0,
         &mut HashMap::new(),
