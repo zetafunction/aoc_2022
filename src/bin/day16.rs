@@ -14,7 +14,6 @@
 
 use aoc_2022::{oops, oops::Oops};
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
@@ -29,21 +28,6 @@ struct Valve {
 struct Puzzle {
     flows: HashMap<String, i32>,
     distances: HashMap<String, HashMap<String, i32>>,
-}
-
-struct State {
-    // Only tracks valves with non-zero flow.
-    visited: HashSet<String>,
-    remaining: i32,
-}
-
-impl State {
-    fn new() -> Self {
-        Self {
-            visited: HashSet::new(),
-            remaining: 30,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -68,37 +52,6 @@ impl<'a> Goal<'a> {
 }
 
 impl Puzzle {
-    fn try_path(&self, current: &str, state: &mut State) -> i32 {
-        // Only need to visit unvisited valves with non-zero flow.
-        let target_valves = self
-            .flows
-            .iter()
-            .filter(|(name, &flow)| flow > 0 && !state.visited.contains(*name))
-            .map(|(name, _)| name)
-            .collect::<Vec<_>>();
-
-        // No more non-zero valves, just return.
-        if target_valves.is_empty() {
-            return 0;
-        }
-
-        let mut best = 0;
-        for v in target_valves {
-            let distance_to_v = self.distance_between(current, v) + 1;
-            if distance_to_v >= state.remaining {
-                continue;
-            }
-            state.remaining -= distance_to_v;
-            state.visited.insert(v.clone());
-            let flow_from_path = self.try_path(v, state);
-            let candidate = flow_from_path + state.remaining * self.flow_for(v);
-            best = std::cmp::max(best, candidate);
-            state.visited.remove(v);
-            state.remaining += distance_to_v;
-        }
-        best
-    }
-
     fn find_path<'a, const N: usize>(
         &self,
         targets: &mut Vec<&'a str>,
@@ -129,7 +82,7 @@ impl Puzzle {
             })
             .sum();
 
-        // The best seen key is the remaining unassigned valves ordered lexicographically.
+        // The best seen key is a vector of the remaining unassigned valves ordered lexicographically.
         let mut best_seen_key = targets[assigned..].to_vec();
         best_seen_key.sort();
         if let Some(best_seen) = best_seen.get(&best_seen_key) {
@@ -148,6 +101,8 @@ impl Puzzle {
 
         let mut best = so_far;
 
+        // targets[..assigned] have been visited and activated. Permute through all possible
+        // remaining combinations of targets[assigned..].
         for x in assigned..targets.len() {
             targets.swap(x, assigned);
 
@@ -268,21 +223,28 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut state = State::new();
-    Ok(puzzle.try_path("AA", &mut state) as usize)
+fn part1(puzzle: &Puzzle) -> i32 {
+    let mut targets = puzzle.flows.keys().map(String::as_str).collect();
+    puzzle.find_path(
+        &mut targets,
+        0,
+        &mut HashMap::new(),
+        &[Goal::new("AA", 0)],
+        0,
+        30,
+    )
 }
 
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
+fn part2(puzzle: &Puzzle) -> i32 {
     let mut targets = puzzle.flows.keys().map(String::as_str).collect();
-    Ok(puzzle.find_path(
+    puzzle.find_path(
         &mut targets,
         0,
         &mut HashMap::new(),
         &[Goal::new("AA", 0), Goal::new("AA", 0)],
         0,
         26,
-    ) as usize)
+    )
 }
 
 fn main() -> Result<(), Oops> {
@@ -292,8 +254,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -317,11 +279,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(1651, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(1651, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(1707, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(1707, part2(&parse(SAMPLE).unwrap()));
     }
 }
