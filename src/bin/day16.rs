@@ -46,6 +46,27 @@ impl State {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct Goal<'a> {
+    valve: &'a str,
+    left: i32,
+}
+
+impl<'a> Goal<'a> {
+    fn new(valve: &'a str, left: i32) -> Self {
+        Goal { valve, left }
+    }
+
+    fn set_new_target(&self, p: &Puzzle, valve: &'a str) -> Self {
+        Goal::new(valve, p.distance_between(self.valve, valve) + 1)
+    }
+
+    fn next(&self, x: i32) -> Self {
+        assert!(self.left >= x);
+        Goal::new(self.valve, self.left - x)
+    }
+}
+
 impl Puzzle {
     fn try_path(&self, current: &str, state: &mut State) -> i32 {
         // Only need to visit unvisited valves with non-zero flow.
@@ -78,16 +99,18 @@ impl Puzzle {
         best
     }
 
-    fn try_elephant_path<'a>(
+    fn find_path<'a, const N: usize>(
         &self,
         targets: &mut Vec<&'a str>,
         assigned: usize,
         best_seen: &mut HashMap<Vec<&'a str>, i32>,
-        dest1: (&str, i32),
-        dest2: (&str, i32),
+        goals: &[Goal; N],
         so_far: i32,
-        remaining: i32,
+        remaining_time: i32,
     ) -> i32 {
+        // Invariant: when calling this function, at least one goal must have been reached, i.e.
+        // goal.left == 0.
+
         // All valves have been visited.
         if assigned == targets.len() {
             return so_far;
@@ -97,15 +120,12 @@ impl Puzzle {
         let max_possible_remaining = &targets[assigned..]
             .iter()
             .map(|r| {
-                let min_distance = std::cmp::min(
-                    self.distance_between(dest1.0, r),
-                    self.distance_between(dest1.0, r),
-                );
-                if remaining > min_distance {
-                    (remaining - min_distance) * self.flow_for(*r)
-                } else {
-                    0
-                }
+                let min_time = goals
+                    .iter()
+                    .map(|g| g.left + self.distance_between(g.valve, r) + 1)
+                    .min()
+                    .unwrap();
+                std::cmp::max(remaining_time - min_time, 0) * self.flow_for(*r)
             })
             .sum();
 
@@ -120,35 +140,35 @@ impl Puzzle {
             }
         }
 
-        let (dest_to_update, dest_to_keep) = if dest1.1 < dest2.1 {
-            (dest1, dest2)
-        } else {
-            (dest2, dest1)
-        };
+        let next_goal_idx = goals
+            .iter()
+            .enumerate()
+            .find_map(|(i, g)| if g.left == 0 { Some(i) } else { None })
+            .expect(&format!("no goals reached! {:?}", goals));
 
-        assert!(dest_to_update.1 == 0);
         let mut best = so_far;
 
         for x in assigned..targets.len() {
             targets.swap(x, assigned);
 
-            let next_dest = (
-                targets[assigned],
-                self.distance_between(dest_to_update.0, targets[assigned]) + 1,
-            );
-            if next_dest.1 > remaining {
+            let mut goals = *goals;
+            goals[next_goal_idx] = goals[next_goal_idx].set_new_target(self, targets[assigned]);
+            let time_to_next_goal = goals[next_goal_idx].left;
+            if time_to_next_goal > remaining_time {
                 targets.swap(x, assigned);
                 continue;
             }
-            let advance_by = std::cmp::min(dest_to_keep.1, next_dest.1);
-            let result = self.try_elephant_path(
+            let advance_by = goals.iter().map(|g| g.left).min().unwrap();
+            for g in goals.iter_mut() {
+                *g = g.next(advance_by);
+            }
+            let result = self.find_path(
                 targets,
                 assigned + 1,
                 best_seen,
-                (next_dest.0, next_dest.1 - advance_by),
-                (dest_to_keep.0, dest_to_keep.1 - advance_by),
-                so_far + (remaining - next_dest.1) * self.flow_for(targets[assigned]),
-                remaining - advance_by,
+                &goals,
+                so_far + (remaining_time - time_to_next_goal) * self.flow_for(targets[assigned]),
+                remaining_time - advance_by,
             );
 
             best = std::cmp::max(best, result);
@@ -168,12 +188,13 @@ impl Puzzle {
         best
     }
 
+    // Note: this counts physical distance and does not include the time to activate a valve.
     fn distance_between(&self, from: &str, to: &str) -> i32 {
         return *self.distances.get(from).unwrap().get(to).unwrap();
     }
 
-    fn flow_for(&self, name: &str) -> i32 {
-        *self.flows.get(name).unwrap()
+    fn flow_for(&self, valve: &str) -> i32 {
+        *self.flows.get(valve).unwrap()
     }
 
     fn calculate_distances(
@@ -254,12 +275,11 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
     let mut targets = puzzle.flows.keys().map(String::as_str).collect();
-    Ok(puzzle.try_elephant_path(
+    Ok(puzzle.find_path(
         &mut targets,
         0,
         &mut HashMap::new(),
-        ("AA", 0),
-        ("AA", 0),
+        &[Goal::new("AA", 0), Goal::new("AA", 0)],
         0,
         26,
     ) as usize)
