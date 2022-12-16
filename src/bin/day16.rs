@@ -13,7 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::BinaryHeap;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -108,45 +108,100 @@ impl Puzzle {
         best
     }
 
-    fn try_elephant_path2(&self, targets: &mut Vec<String>, assigned: usize) -> i32 {
+    fn try_elephant_path2<'a>(
+        &self,
+        targets: &mut Vec<&'a str>,
+        assigned: usize,
+        best_seen: &mut BTreeMap<Vec<&'a str>, i32>,
+        dest1: (&str, i32),
+        dest2: (&str, i32),
+        so_far: i32,
+        remaining: i32,
+    ) -> i32 {
         if assigned == targets.len() {
-            let mut remaining = 26;
-            let mut dest1 = ("AA", 0);
-            let mut dest2 = ("AA", 0);
-            let mut result = 0;
-            for target in targets {
-                let dest_to_update = if dest1.1 < dest2.1 {
-                    &mut dest1
-                } else {
-                    &mut dest2
-                };
-                let next_distance = self
-                    .distance_table
-                    .get(dest_to_update.0)
-                    .unwrap()
-                    .get(target)
-                    .unwrap()
-                    + 1;
-                if remaining < next_distance {
-                    break;
-                }
-                result += (remaining - next_distance) * self.valves.get(target).unwrap().flow;
-                *dest_to_update = (target, next_distance);
-                let advance_by = std::cmp::min(dest1.1, dest2.1);
-                remaining -= advance_by;
-                dest1.1 -= advance_by;
-                dest2.1 -= advance_by;
-            }
-            return result;
+            return so_far;
         }
 
         let mut best = 0;
+        let max_remaining = &targets[assigned..]
+            .iter()
+            .map(|r| remaining * self.valves.get(*r).unwrap().flow)
+            .sum::<i32>();
+        let mut best_seen_key = targets[assigned..].to_vec();
+        best_seen_key.sort();
+        if let Some(best_seen) = best_seen.get(&best_seen_key) {
+            if *best_seen > max_remaining + so_far {
+                println!("giving up with {} remaining, current result is {} via {:?}, max possible remaining is {} via {:?}, but best_seen is {}",
+                    remaining,
+                    so_far,
+                    &targets[..assigned],
+                    max_remaining,
+                    &targets[assigned..],
+                    best_seen);
+                return 0;
+            }
+        }
+
+        let (dest_to_update, dest_to_keep) = if dest1.1 < dest2.1 {
+            (dest1, dest2)
+        } else {
+            (dest2, dest1)
+        };
+        assert!(dest_to_update.1 == 0);
+
+        /*
+        println!(
+            "dest1: {:?} dest2: {:?}, remaining {}, assigned {:?}, so far: {}",
+            dest1,
+            dest2,
+            remaining,
+            &targets[..assigned],
+            so_far,
+        );
+        */
         for x in assigned..targets.len() {
             targets.swap(x, assigned);
-            let result = self.try_elephant_path2(targets, assigned + 1);
+
+            let next_dest = (
+                targets[assigned],
+                *self
+                    .distance_table
+                    .get(dest_to_update.0)
+                    .unwrap()
+                    .get(targets[assigned])
+                    .unwrap()
+                    + 1,
+            );
+            if next_dest.1 > remaining {
+                targets.swap(x, assigned);
+                continue;
+            }
+            let advance_by = std::cmp::min(dest_to_keep.1, next_dest.1);
+            let result = self.try_elephant_path2(
+                targets,
+                assigned + 1,
+                best_seen,
+                (next_dest.0, next_dest.1 - advance_by),
+                (dest_to_keep.0, dest_to_keep.1 - advance_by),
+                so_far
+                    + (remaining - next_dest.1) * self.valves.get(targets[assigned]).unwrap().flow,
+                remaining - advance_by,
+            );
+
             best = std::cmp::max(best, result);
+
             targets.swap(x, assigned);
         }
+
+        for i in assigned..targets.len() {
+            let mut best_seen_key = targets[i..].to_vec();
+            best_seen_key.sort();
+            best_seen
+                .entry(best_seen_key)
+                .and_modify(|current| *current = std::cmp::max(*current, best))
+                .or_insert(best);
+        }
+
         return best;
     }
 
@@ -321,9 +376,17 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
         .valves
         .keys()
         .filter(|v| puzzle.valves.get(*v).unwrap().flow > 0)
-        .cloned()
+        .map(|s| s.as_str())
         .collect();
-    Ok(puzzle.try_elephant_path2(&mut targets, 0) as usize)
+    Ok(puzzle.try_elephant_path2(
+        &mut targets,
+        0,
+        &mut BTreeMap::new(),
+        ("AA", 0),
+        ("AA", 0),
+        0,
+        26,
+    ) as usize)
     /*
     let mut state = State::new();
     state.remaining = 26;
