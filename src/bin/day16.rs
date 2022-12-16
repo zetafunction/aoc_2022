@@ -61,8 +61,6 @@ impl Puzzle {
             return 0;
         }
 
-        // println!("Target valves: {:?}", target_valves);
-
         let mut best = 0;
         for v in target_valves {
             let distance_to_v = self.distance_between(current, v) + 1;
@@ -72,14 +70,6 @@ impl Puzzle {
             state.remaining -= distance_to_v;
             state.visited.insert(v.clone());
             let flow_from_path = self.try_path(v, state);
-            /*
-            println!(
-                "could get {} from opening valve {} at {}",
-                state.remaining * self.valves.get(v).unwrap().flow,
-                v,
-                state.remaining
-            );
-            */
             let candidate = flow_from_path + state.remaining * self.valves.get(v).unwrap().flow;
             best = std::cmp::max(best, candidate);
             state.visited.remove(v);
@@ -111,13 +101,6 @@ impl Puzzle {
         best_seen_key.sort();
         if let Some(best_seen) = best_seen.get(&best_seen_key) {
             if *best_seen > max_remaining + so_far {
-                println!("giving up with {} remaining, current result is {} via {:?}, max possible remaining is {} via {:?}, but best_seen is {}",
-                    remaining,
-                    so_far,
-                    &targets[..assigned],
-                    max_remaining,
-                    &targets[assigned..],
-                    best_seen);
                 return 0;
             }
         }
@@ -152,11 +135,7 @@ impl Puzzle {
                 remaining - advance_by,
             );
 
-            let old_best = best;
             best = std::cmp::max(best, result);
-            if old_best != best {
-                println!("best changed from {} to {} at {}", old_best, best, assigned);
-            }
 
             targets.swap(x, assigned);
         }
