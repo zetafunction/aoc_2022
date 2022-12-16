@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -105,6 +106,48 @@ impl Puzzle {
             state.remaining += distance_to_v;
         }
         best
+    }
+
+    fn try_elephant_path2(&self, targets: &mut Vec<String>, assigned: usize) -> i32 {
+        if assigned == targets.len() {
+            let mut remaining = 26;
+            let mut dest1 = ("AA", 0);
+            let mut dest2 = ("AA", 0);
+            let mut result = 0;
+            for target in targets {
+                let dest_to_update = if dest1.1 < dest2.1 {
+                    &mut dest1
+                } else {
+                    &mut dest2
+                };
+                let next_distance = self
+                    .distance_table
+                    .get(dest_to_update.0)
+                    .unwrap()
+                    .get(target)
+                    .unwrap()
+                    + 1;
+                if remaining < next_distance {
+                    break;
+                }
+                result += (remaining - next_distance) * self.valves.get(target).unwrap().flow;
+                *dest_to_update = (target, next_distance);
+                let advance_by = std::cmp::min(dest1.1, dest2.1);
+                remaining -= advance_by;
+                dest1.1 -= advance_by;
+                dest2.1 -= advance_by;
+            }
+            return result;
+        }
+
+        let mut best = 0;
+        for x in assigned..targets.len() {
+            targets.swap(x, assigned);
+            let result = self.try_elephant_path2(targets, assigned + 1);
+            best = std::cmp::max(best, result);
+            targets.swap(x, assigned);
+        }
+        return best;
     }
 
     fn try_elephant_path(&self, state: &mut State, human_goal: &Goal, elephant_goal: &Goal) -> i32 {
@@ -274,6 +317,14 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
+    let mut targets = puzzle
+        .valves
+        .keys()
+        .filter(|v| puzzle.valves.get(*v).unwrap().flow > 0)
+        .cloned()
+        .collect();
+    Ok(puzzle.try_elephant_path2(&mut targets, 0) as usize)
+    /*
     let mut state = State::new();
     state.remaining = 26;
     Ok(puzzle.try_elephant_path(
@@ -287,6 +338,7 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
             left: 0,
         },
     ) as usize)
+    */
 }
 
 fn main() -> Result<(), Oops> {
