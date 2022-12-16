@@ -38,25 +38,6 @@ struct State {
     remaining: i32,
 }
 
-#[derive(Copy, Clone, Debug)]
-struct Goal<'a> {
-    target: &'a str,
-    left: i32,
-}
-
-impl<'a> Goal<'a> {
-    fn new(target: &'a str, left: i32) -> Self {
-        Goal { target, left }
-    }
-
-    fn advance(&self, by: i32) -> Goal {
-        Goal {
-            target: self.target,
-            left: self.left - by,
-        }
-    }
-}
-
 impl State {
     fn new() -> Self {
         Self {
@@ -122,7 +103,7 @@ impl Puzzle {
             return so_far;
         }
 
-        let mut best = 0;
+        let mut best = so_far;
         let max_remaining = &targets[assigned..]
             .iter()
             .map(|r| remaining * self.valves.get(*r).unwrap().flow)
@@ -149,16 +130,6 @@ impl Puzzle {
         };
         assert!(dest_to_update.1 == 0);
 
-        /*
-        println!(
-            "dest1: {:?} dest2: {:?}, remaining {}, assigned {:?}, so far: {}",
-            dest1,
-            dest2,
-            remaining,
-            &targets[..assigned],
-            so_far,
-        );
-        */
         for x in assigned..targets.len() {
             targets.swap(x, assigned);
 
@@ -188,7 +159,11 @@ impl Puzzle {
                 remaining - advance_by,
             );
 
+            let old_best = best;
             best = std::cmp::max(best, result);
+            if old_best != best {
+                println!("best changed from {} to {} at {}", old_best, best, assigned);
+            }
 
             targets.swap(x, assigned);
         }
@@ -203,95 +178,6 @@ impl Puzzle {
         }
 
         return best;
-    }
-
-    fn try_elephant_path(&self, state: &mut State, human_goal: &Goal, elephant_goal: &Goal) -> i32 {
-        assert!(state.remaining >= 0);
-
-        if human_goal.left > 0 && elephant_goal.left > 0 {
-            let advance_by = std::cmp::min(human_goal.left, elephant_goal.left);
-            state.remaining -= advance_by;
-            let x = self.try_elephant_path(
-                state,
-                &human_goal.advance(advance_by),
-                &elephant_goal.advance(advance_by),
-            );
-            state.remaining += advance_by;
-            return x;
-        }
-
-        // Only need to visit unvisited valves with non-zero flow.
-        let target_valves = self
-            .valves
-            .iter()
-            .filter(|(name, valve)| valve.flow > 0 && !state.visited.contains(*name))
-            .map(|(name, _)| name)
-            .collect::<Vec<_>>();
-
-        // No more non-zero valves, just return.
-        if target_valves.is_empty() {
-            return (state.remaining - human_goal.left)
-                * self.valves.get(human_goal.target).unwrap().flow
-                + (state.remaining - elephant_goal.left)
-                    * self.valves.get(elephant_goal.target).unwrap().flow;
-        }
-
-        let mut best = 0;
-
-        if human_goal.left == 0 {
-            let base_flow = state.remaining * self.valves.get(human_goal.target).unwrap().flow;
-            for v in &target_valves {
-                let distance = self
-                    .distance_table
-                    .get(human_goal.target)
-                    .unwrap()
-                    .get(*v)
-                    .unwrap()
-                    + 1;
-                if distance > state.remaining {
-                    continue;
-                }
-                state.visited.insert((*v).clone());
-                let result = base_flow
-                    + self.try_elephant_path(
-                        state,
-                        &Goal {
-                            target: *v,
-                            left: distance,
-                        },
-                        elephant_goal,
-                    );
-                best = std::cmp::max(result, best);
-                state.visited.remove(*v);
-            }
-        } else if elephant_goal.left == 0 {
-            let base_flow = state.remaining * self.valves.get(elephant_goal.target).unwrap().flow;
-            for v in &target_valves {
-                let distance = self
-                    .distance_table
-                    .get(elephant_goal.target)
-                    .unwrap()
-                    .get(*v)
-                    .unwrap()
-                    + 1;
-                if distance > state.remaining {
-                    continue;
-                }
-                state.visited.insert((*v).clone());
-                let result = base_flow
-                    + self.try_elephant_path(
-                        state,
-                        human_goal,
-                        &Goal {
-                            target: *v,
-                            left: distance,
-                        },
-                    );
-                state.visited.remove(*v);
-                best = std::cmp::max(result, best);
-            }
-        }
-        best
     }
 
     fn find_distances(&self, from: &str) -> HashMap<String, i32> {
@@ -387,21 +273,6 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
         0,
         26,
     ) as usize)
-    /*
-    let mut state = State::new();
-    state.remaining = 26;
-    Ok(puzzle.try_elephant_path(
-        &mut state,
-        &Goal {
-            target: "AA",
-            left: 0,
-        },
-        &Goal {
-            target: "AA",
-            left: 0,
-        },
-    ) as usize)
-    */
 }
 
 fn main() -> Result<(), Oops> {
