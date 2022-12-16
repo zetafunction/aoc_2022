@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
@@ -29,7 +28,7 @@ struct Valve {
 #[derive(Debug)]
 struct Puzzle {
     valves: HashMap<String, Valve>,
-    distance_table: HashMap<String, HashMap<String, i32>>,
+    distances: HashMap<String, HashMap<String, i32>>,
 }
 
 struct State {
@@ -66,7 +65,7 @@ impl Puzzle {
 
         let mut best = 0;
         for v in target_valves {
-            let distance_to_v = self.distance_table.get(current).unwrap().get(v).unwrap() + 1;
+            let distance_to_v = self.distance_between(current, v) + 1;
             if distance_to_v >= state.remaining {
                 continue;
             }
@@ -93,7 +92,7 @@ impl Puzzle {
         &self,
         targets: &mut Vec<&'a str>,
         assigned: usize,
-        best_seen: &mut BTreeMap<Vec<&'a str>, i32>,
+        best_seen: &mut HashMap<Vec<&'a str>, i32>,
         dest1: (&str, i32),
         dest2: (&str, i32),
         so_far: i32,
@@ -135,13 +134,7 @@ impl Puzzle {
 
             let next_dest = (
                 targets[assigned],
-                *self
-                    .distance_table
-                    .get(dest_to_update.0)
-                    .unwrap()
-                    .get(targets[assigned])
-                    .unwrap()
-                    + 1,
+                self.distance_between(dest_to_update.0, targets[assigned]) + 1,
             );
             if next_dest.1 > remaining {
                 targets.swap(x, assigned);
@@ -177,32 +170,38 @@ impl Puzzle {
                 .or_insert(best);
         }
 
-        return best;
+        best
     }
 
-    fn find_distances(&self, from: &str) -> HashMap<String, i32> {
-        let mut frontier = VecDeque::new();
-        let mut visited = HashMap::new();
-        frontier.push_back(from.to_string());
-        visited.insert(from.to_string(), 0);
-        while !frontier.is_empty() {
-            let current = frontier.pop_front().unwrap();
-            let next_cost = visited.get(&current).unwrap() + 1;
-            let nexts: Vec<_> = self
-                .valves
-                .get(&current)
-                .unwrap()
-                .next
-                .iter()
-                .filter(|x| !visited.contains_key(*x))
-                .collect();
+    fn distance_between(&self, from: &str, to: &str) -> i32 {
+        return *self.distances.get(from).unwrap().get(to).unwrap();
+    }
 
-            for next in nexts {
-                frontier.push_back(next.clone());
-                visited.insert(next.clone(), next_cost);
+    fn calculate_distances(
+        valves: &HashMap<String, Valve>,
+    ) -> HashMap<String, HashMap<String, i32>> {
+        let mut distances = HashMap::new();
+        for from in valves.keys() {
+            let mut frontier = VecDeque::<&str>::new();
+            let mut from_distances = HashMap::new();
+            frontier.push_back(from);
+            while let Some(current) = frontier.pop_front() {
+                let next_cost = from_distances.get(current).unwrap_or(&0) + 1;
+                let unvisited_neighbors = valves
+                    .get(current)
+                    .unwrap()
+                    .next
+                    .iter()
+                    .filter(|x| !from_distances.contains_key(*x))
+                    .collect::<Vec<_>>();
+                for n in unvisited_neighbors {
+                    frontier.push_back(n);
+                    from_distances.insert(n.clone(), next_cost);
+                }
             }
+            distances.insert(from.clone(), from_distances);
         }
-        visited
+        distances
     }
 }
 
@@ -210,41 +209,34 @@ impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut puzzle = Puzzle {
-            valves: s
-                .lines()
-                .map(|line| {
-                    let line = line
-                        .strip_prefix("Valve ")
-                        .ok_or_else(|| oops!("bad format {}", line))?;
-                    let (name, line) = line
-                        .split_once(" has flow rate=")
-                        .ok_or_else(|| oops!("bad format {}", line))?;
-                    let (flow, valves) = if line.contains("tunnels") {
-                        line.split_once("; tunnels lead to valves ")
-                            .ok_or_else(|| oops!("bad format {}", line))?
-                    } else {
-                        line.split_once("; tunnel leads to valve ")
-                            .ok_or_else(|| oops!("bad format {}", line))?
-                    };
-                    let valves = valves.split(", ");
-                    Ok::<_, Oops>((
-                        name.to_string(),
-                        Valve {
-                            flow: flow.parse()?,
-                            next: valves.map(str::to_string).collect(),
-                        },
-                    ))
-                })
-                .collect::<Result<_, _>>()?,
-            distance_table: HashMap::new(),
-        };
-        puzzle.distance_table = puzzle
-            .valves
-            .iter()
-            .map(|(name, _)| (name.clone(), puzzle.find_distances(name)))
-            .collect();
-        Ok(puzzle)
+        let valves = s
+            .lines()
+            .map(|line| {
+                let line = line
+                    .strip_prefix("Valve ")
+                    .ok_or_else(|| oops!("bad format {}", line))?;
+                let (name, line) = line
+                    .split_once(" has flow rate=")
+                    .ok_or_else(|| oops!("bad format {}", line))?;
+                let (flow, valves) = if line.contains("tunnels") {
+                    line.split_once("; tunnels lead to valves ")
+                        .ok_or_else(|| oops!("bad format {}", line))?
+                } else {
+                    line.split_once("; tunnel leads to valve ")
+                        .ok_or_else(|| oops!("bad format {}", line))?
+                };
+                let valves = valves.split(", ");
+                Ok::<_, Oops>((
+                    name.to_string(),
+                    Valve {
+                        flow: flow.parse()?,
+                        next: valves.map(str::to_string).collect(),
+                    },
+                ))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
+        let distances = Self::calculate_distances(&valves);
+        Ok(Puzzle { valves, distances })
     }
 }
 
@@ -267,7 +259,7 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
     Ok(puzzle.try_elephant_path2(
         &mut targets,
         0,
-        &mut BTreeMap::new(),
+        &mut HashMap::new(),
         ("AA", 0),
         ("AA", 0),
         0,
