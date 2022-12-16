@@ -28,6 +28,7 @@ struct Valve {
 #[derive(Debug)]
 struct Puzzle {
     valves: HashMap<String, Valve>,
+    distance_table: HashMap<String, HashMap<String, i32>>,
 }
 
 struct State {
@@ -81,10 +82,9 @@ impl Puzzle {
 
         // println!("Target valves: {:?}", target_valves);
 
-        let distances = self.find_distances(current);
         let mut best = 0;
         for v in target_valves {
-            let distance_to_v = *distances.get(v).unwrap() + 1;
+            let distance_to_v = self.distance_table.get(current).unwrap().get(v).unwrap() + 1;
             if distance_to_v >= state.remaining {
                 continue;
             }
@@ -138,15 +138,18 @@ impl Puzzle {
                     * self.valves.get(elephant_goal.target).unwrap().flow;
         }
 
-        let human_distances = self.find_distances(human_goal.target);
-        let elephant_distances = self.find_distances(elephant_goal.target);
-
         let mut best = 0;
 
         if human_goal.left == 0 {
             let base_flow = state.remaining * self.valves.get(human_goal.target).unwrap().flow;
             for v in &target_valves {
-                let distance = human_distances.get(*v).unwrap() + 1;
+                let distance = self
+                    .distance_table
+                    .get(human_goal.target)
+                    .unwrap()
+                    .get(*v)
+                    .unwrap()
+                    + 1;
                 if distance > state.remaining {
                     continue;
                 }
@@ -166,7 +169,13 @@ impl Puzzle {
         } else if elephant_goal.left == 0 {
             let base_flow = state.remaining * self.valves.get(elephant_goal.target).unwrap().flow;
             for v in &target_valves {
-                let distance = elephant_distances.get(*v).unwrap() + 1;
+                let distance = self
+                    .distance_table
+                    .get(elephant_goal.target)
+                    .unwrap()
+                    .get(*v)
+                    .unwrap()
+                    + 1;
                 if distance > state.remaining {
                     continue;
                 }
@@ -209,7 +218,6 @@ impl Puzzle {
                 visited.insert(next.clone(), next_cost);
             }
         }
-        // println!("{:?}", visited);
         visited
     }
 }
@@ -245,7 +253,13 @@ impl FromStr for Puzzle {
                     ))
                 })
                 .collect::<Result<_, _>>()?,
+            distance_table: HashMap::new(),
         };
+        puzzle.distance_table = puzzle
+            .valves
+            .iter()
+            .map(|(name, _)| (name.clone(), puzzle.find_distances(name)))
+            .collect();
         Ok(puzzle)
     }
 }
