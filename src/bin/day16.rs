@@ -26,22 +26,22 @@ struct Valve {
 
 #[derive(Debug)]
 struct Puzzle {
-    flows: HashMap<String, i32>,
-    distances: HashMap<String, HashMap<String, i32>>,
+    flows: HashMap<u32, i32>,
+    distances: HashMap<(u32, u32), i32>,
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Goal<'a> {
-    valve: &'a str,
+struct Goal {
+    valve: u32,
     left: i32,
 }
 
-impl<'a> Goal<'a> {
-    fn new(valve: &'a str, left: i32) -> Self {
+impl Goal {
+    fn new(valve: u32, left: i32) -> Self {
         Goal { valve, left }
     }
 
-    fn set_new_target(&self, p: &Puzzle, valve: &'a str) -> Self {
+    fn set_new_target(&self, p: &Puzzle, valve: u32) -> Self {
         Goal::new(valve, p.distance_between(self.valve, valve) + 1)
     }
 
@@ -54,9 +54,9 @@ impl<'a> Goal<'a> {
 impl Puzzle {
     fn find_path<'a, const N: usize>(
         &self,
-        targets: &mut Vec<&'a str>,
+        targets: &mut Vec<u32>,
         assigned: usize,
-        best_seen: &mut HashMap<Vec<&'a str>, i32>,
+        best_seen: &mut HashMap<Vec<u32>, i32>,
         goals: &[Goal; N],
         so_far: i32,
         remaining_time: i32,
@@ -75,7 +75,7 @@ impl Puzzle {
             .map(|r| {
                 let min_time = goals
                     .iter()
-                    .map(|g| g.left + self.distance_between(g.valve, r) + 1)
+                    .map(|g| g.left + self.distance_between(g.valve, *r) + 1)
                     .min()
                     .unwrap();
                 std::cmp::max(remaining_time - min_time, 0) * self.flow_for(*r)
@@ -144,17 +144,19 @@ impl Puzzle {
     }
 
     // Note: this counts physical distance and does not include the time to activate a valve.
-    fn distance_between(&self, from: &str, to: &str) -> i32 {
-        return *self.distances.get(from).unwrap().get(to).unwrap();
+    fn distance_between(&self, from: u32, to: u32) -> i32 {
+        return *self.distances.get(&(from, to)).unwrap();
     }
 
-    fn flow_for(&self, valve: &str) -> i32 {
-        *self.flows.get(valve).unwrap()
+    fn flow_for(&self, valve: u32) -> i32 {
+        *self.flows.get(&valve).unwrap()
     }
 
     fn calculate_distances(
         valves: &HashMap<String, Valve>,
-    ) -> HashMap<String, HashMap<String, i32>> {
+        mapper: &mut MapStringsToBits,
+    ) -> HashMap<(u32, u32), i32> {
+        // First, use BFS to map out the distance between any two valves.
         let mut distances = HashMap::new();
         for from in valves.keys() {
             let mut frontier = VecDeque::<&str>::new();
@@ -176,7 +178,42 @@ impl Puzzle {
             }
             distances.insert(from.clone(), from_distances);
         }
+        // Flatten the map of map of distances, but only keep routes between valves with non-zero
+        // valves. As a special-case, distances from the initial node ("AA") are included.
         distances
+            .iter()
+            .flat_map(|(from, from_distance)| {
+                from_distance
+                    .iter()
+                    .map(move |(to, distance)| ((from, to), *distance))
+            })
+            .filter(|((from, to), _)| {
+                (*from == "AA" || valves.get(*from).unwrap().flow > 0)
+                    && (*to == "AA" || valves.get(*to).unwrap().flow > 0)
+            })
+            .map(|((from, to), distance)| ((mapper.get_bit(from), mapper.get_bit(to)), distance))
+            .collect()
+    }
+}
+
+struct MapStringsToBits {
+    mapping: HashMap<String, u32>,
+    next_bit: u32,
+}
+
+impl MapStringsToBits {
+    fn new() -> Self {
+        MapStringsToBits {
+            mapping: HashMap::new(),
+            next_bit: 1,
+        }
+    }
+    fn get_bit(&mut self, label: &str) -> u32 {
+        *self.mapping.entry(label.to_string()).or_insert_with(|| {
+            let next_bit = self.next_bit;
+            self.next_bit *= 2;
+            next_bit
+        })
     }
 }
 
@@ -210,10 +247,20 @@ impl FromStr for Puzzle {
                 ))
             })
             .collect::<Result<HashMap<_, _>, _>>()?;
-        let distances = Self::calculate_distances(&valves);
+        let mut mapper = MapStringsToBits::new();
+        //  Reserve the first bit as a placeholder for the initial node, even though it has no flow.
+        mapper.get_bit("AA");
+        let distances = Self::calculate_distances(&valves, &mut mapper);
+        // Drop any remaining nodes with zero flows, as they will never be targetted.
         let flows = valves
-            .into_iter()
-            .filter_map(|(k, v)| if v.flow > 0 { Some((k, v.flow)) } else { None })
+            .iter()
+            .filter_map(|(k, v)| {
+                if v.flow > 0 {
+                    Some((mapper.get_bit(k), v.flow))
+                } else {
+                    None
+                }
+            })
             .collect();
         Ok(Puzzle { flows, distances })
     }
@@ -224,24 +271,24 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> i32 {
-    let mut targets = puzzle.flows.keys().map(String::as_str).collect();
+    let mut targets = puzzle.flows.keys().copied().collect();
     puzzle.find_path(
         &mut targets,
         0,
         &mut HashMap::new(),
-        &[Goal::new("AA", 0)],
+        &[Goal::new(1, 0)],
         0,
         30,
     )
 }
 
 fn part2(puzzle: &Puzzle) -> i32 {
-    let mut targets = puzzle.flows.keys().map(String::as_str).collect();
+    let mut targets = puzzle.flows.keys().copied().collect();
     puzzle.find_path(
         &mut targets,
         0,
         &mut HashMap::new(),
-        &[Goal::new("AA", 0), Goal::new("AA", 0)],
+        &[Goal::new(1, 0), Goal::new(1, 0)],
         0,
         26,
     )
