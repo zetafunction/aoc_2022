@@ -13,7 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -26,14 +26,37 @@ struct Puzzle {
     jets: Vec<Jet>,
 }
 
-// All rocks are assumed to be anchored at 0, 0
-const ROCKS: &[&[(i64, i64)]] = &[
-    // This is actually the last rock but we call next() 2x at the start.
-    &[(0, 0), (0, 1), (1, 1), (1, 0)],
-    &[(0, 0), (1, 0), (2, 0), (3, 0)],
-    &[(0, 1), (1, 2), (1, 1), (1, 0), (2, 1)],
-    &[(0, 0), (1, 0), (2, 0), (2, 1), (2, 2)],
-    &[(0, 0), (0, 1), (0, 2), (0, 3)],
+const ROCKS: [[u16; 4]; 5] = [
+    [
+        0b0001111000000000,
+        0b0000000000000000,
+        0b0000000000000000,
+        0b0000000000000000,
+    ],
+    [
+        0b0000100000000000,
+        0b0001110000000000,
+        0b0000100000000000,
+        0b0000000000000000,
+    ],
+    [
+        0b0001110000000000,
+        0b0000010000000000,
+        0b0000010000000000,
+        0b0000000000000000,
+    ],
+    [
+        0b0001000000000000,
+        0b0001000000000000,
+        0b0001000000000000,
+        0b0001000000000000,
+    ],
+    [
+        0b0001100000000000,
+        0b0001100000000000,
+        0b0000000000000000,
+        0b0000000000000000,
+    ],
 ];
 
 impl FromStr for Puzzle {
@@ -57,9 +80,7 @@ impl FromStr for Puzzle {
 }
 
 fn parse(input: &str) -> Result<Puzzle, Oops> {
-    let p = input.parse::<Puzzle>()?;
-    println!("jet count: {}", p.jets.len());
-    Ok(p)
+    input.parse()
 }
 
 enum State {
@@ -68,129 +89,112 @@ enum State {
     Jet,
 }
 
-fn render_chamber(chamber: &HashSet<(i64, i64)>, top: i64) {
-    for y in (0..=top + 4).rev().take(20) {
-        println!(
-            "{}",
-            (0..=6)
-                .map(|x| if chamber.contains(&(x, y)) { '#' } else { '.' })
-                .collect::<String>()
-        );
+const GRID_SIZE: usize = 32768;
+
+struct BitGrid {
+    top: usize,
+    bot: usize,
+    used: usize,
+    data: VecDeque<u16>,
+}
+
+impl BitGrid {
+    fn new() -> Self {
+        let mut data = VecDeque::with_capacity(GRID_SIZE);
+        data.push_back(0xffff);
+        data.extend(std::iter::repeat(0x80ff).take(GRID_SIZE - 1));
+        BitGrid {
+            top: 0,
+            bot: 0,
+            used: 1,
+            data,
+        }
     }
-    println!("+-----+");
+
+    fn row(&self, n: usize) -> u16 {
+        self.data.get(n - self.bot).copied().unwrap()
+    }
+
+    fn mut_row(&mut self, n: usize) -> &mut u16 {
+        self.data.get_mut(n - self.bot).unwrap()
+    }
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut rocks = ROCKS.iter().cycle();
+    let mut rocks = ROCKS.iter().copied().cycle();
     let mut jets = puzzle.jets.iter().cycle();
-    let mut rock_pos = (0, 0);
-    let mut rock_count = 0;
+
     let mut state = State::NewRock;
-    let mut chamber = HashSet::new();
-    chamber.extend((0..7).into_iter().map(|x| ((x, 0))));
-    let mut top = 0;
+    let mut chamber = BitGrid::new();
+
+    let mut rock_count = 0;
     let mut current_rock = rocks.next().unwrap();
+    // Represents the bottom of the current rock.
+    let mut rock_pos = 0;
     while rock_count < 2023 {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
-                rock_pos = (2, top + 4);
+                rock_pos = chamber.top + 4;
                 state = State::Jet;
                 rock_count += 1;
                 continue;
             }
             State::Fall => {
-                if current_rock
-                    .iter()
-                    .any(|&pos| chamber.contains(&(pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1)))
+                if current_rock[0] & chamber.row(rock_pos - 1) != 0
+                    || current_rock[1] & chamber.row(rock_pos) != 0
+                    || current_rock[2] & chamber.row(rock_pos + 1) != 0
+                    || current_rock[3] & chamber.row(rock_pos + 2) != 0
                 {
-                    for pos in current_rock.iter() {
-                        top = std::cmp::max(top, pos.1 + rock_pos.1);
-                        chamber.insert((pos.0 + rock_pos.0, pos.1 + rock_pos.1));
-                    }
+                    chamber.top = rock_pos + current_rock.iter().filter(|&&x| x != 0).count();
+                    *chamber.mut_row(rock_pos) |= current_rock[0];
+                    *chamber.mut_row(rock_pos + 1) |= current_rock[1];
+                    *chamber.mut_row(rock_pos + 2) |= current_rock[2];
+                    *chamber.mut_row(rock_pos + 3) |= current_rock[3];
                     state = State::NewRock;
                     continue;
                 }
-                rock_pos = (rock_pos.0, rock_pos.1 - 1);
+                rock_pos -= 1;
                 state = State::Jet;
                 continue;
             }
             State::Jet => {
-                let offset = match jets.next().unwrap() {
-                    Jet::Left => -1,
-                    Jet::Right => 1,
+                match jets.next().unwrap() {
+                    Jet::Left => {
+                        if (current_rock[0] << 1) & chamber.row(rock_pos) == 0
+                            && (current_rock[1] << 1) & chamber.row(rock_pos + 1) == 0
+                            && (current_rock[2] << 1) & chamber.row(rock_pos + 2) == 0
+                            && (current_rock[3] << 1) & chamber.row(rock_pos + 3) == 0
+                        {
+                            current_rock[0] <<= 1;
+                            current_rock[1] <<= 1;
+                            current_rock[2] <<= 1;
+                            current_rock[3] <<= 1;
+                        }
+                    }
+                    Jet::Right => {
+                        if (current_rock[0] >> 1) & chamber.row(rock_pos) == 0
+                            && (current_rock[1] >> 1) & chamber.row(rock_pos + 1) == 0
+                            && (current_rock[2] >> 1) & chamber.row(rock_pos + 2) == 0
+                            && (current_rock[3] >> 1) & chamber.row(rock_pos + 3) == 0
+                        {
+                            current_rock[0] >>= 1;
+                            current_rock[1] >>= 1;
+                            current_rock[2] >>= 1;
+                            current_rock[3] >>= 1;
+                        }
+                    }
                 };
-                if !current_rock.iter().any(|&pos| {
-                    pos.0 + rock_pos.0 + offset < 0
-                        || pos.0 + rock_pos.0 + offset >= 7
-                        || chamber.contains(&(pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1))
-                }) {
-                    rock_pos = (rock_pos.0 + offset, rock_pos.1);
-                }
                 state = State::Fall;
                 continue;
             }
         }
     }
-    Ok(top as usize)
+    Ok(chamber.top as usize)
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut rocks = ROCKS.iter().cycle();
-    let mut jets = puzzle.jets.iter().cycle();
-    let mut rock_pos = (0, 0);
-    let mut rock_count = 0i64;
-    let mut state = State::NewRock;
-    let mut chamber = HashSet::new();
-    chamber.extend((0..7).into_iter().map(|x| ((x, 0))));
-    let mut top = 0;
-    let mut current_rock = rocks.next().unwrap();
-    while rock_count < 1_000_000_000_000 {
-        match state {
-            State::NewRock => {
-                current_rock = rocks.next().unwrap();
-                rock_pos = (2, top + 4);
-                state = State::Jet;
-                rock_count += 1;
-                if rock_count % (5 * 7 * puzzle.jets.len()) as i64 == 0 {
-                    render_chamber(&chamber, top);
-                }
-                continue;
-            }
-            State::Fall => {
-                if current_rock
-                    .iter()
-                    .any(|&pos| chamber.contains(&(pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1)))
-                {
-                    for pos in current_rock.iter() {
-                        top = std::cmp::max(top, pos.1 + rock_pos.1);
-                        chamber.insert((pos.0 + rock_pos.0, pos.1 + rock_pos.1));
-                    }
-                    state = State::NewRock;
-                    continue;
-                }
-                rock_pos = (rock_pos.0, rock_pos.1 - 1);
-                state = State::Jet;
-                continue;
-            }
-            State::Jet => {
-                let offset = match jets.next().unwrap() {
-                    Jet::Left => -1,
-                    Jet::Right => 1,
-                };
-                if !current_rock.iter().any(|&pos| {
-                    pos.0 + rock_pos.0 + offset < 0
-                        || pos.0 + rock_pos.0 + offset >= 7
-                        || chamber.contains(&(pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1))
-                }) {
-                    rock_pos = (rock_pos.0 + offset, rock_pos.1);
-                }
-                state = State::Fall;
-                continue;
-            }
-        }
-    }
-    Ok(top as usize)
+    Ok(0)
 }
 
 fn main() -> Result<(), Oops> {
@@ -214,7 +218,7 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(3579124689, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(3068, part1(&parse(SAMPLE).unwrap()).unwrap());
     }
 
     #[test]
