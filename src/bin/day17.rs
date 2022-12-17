@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -284,6 +283,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(1514285714288, part2(&parse(SAMPLE).unwrap()));
     }
 }
