@@ -19,7 +19,7 @@ use std::io::{self, Read};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-struct Label(u32);
+struct Label(u64);
 
 #[derive(Debug)]
 struct Valve {
@@ -181,7 +181,7 @@ impl Puzzle {
 
 struct StringToLabelMapper {
     mapping: HashMap<String, Label>,
-    next_bit: u32,
+    next_bit: u64,
 }
 
 impl StringToLabelMapper {
