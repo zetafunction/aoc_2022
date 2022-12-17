@@ -152,6 +152,32 @@ impl BitGrid {
     }
 }
 
+fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u16; 4]) {
+    if (current_rock[0] << 1) & chamber.row(rock_bottom) == 0
+        && (current_rock[1] << 1) & chamber.row(rock_bottom + 1) == 0
+        && (current_rock[2] << 1) & chamber.row(rock_bottom + 2) == 0
+        && (current_rock[3] << 1) & chamber.row(rock_bottom + 3) == 0
+    {
+        current_rock[0] <<= 1;
+        current_rock[1] <<= 1;
+        current_rock[2] <<= 1;
+        current_rock[3] <<= 1;
+    }
+}
+
+fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u16; 4]) {
+    if (current_rock[0] >> 1) & chamber.row(rock_bottom) == 0
+        && (current_rock[1] >> 1) & chamber.row(rock_bottom + 1) == 0
+        && (current_rock[2] >> 1) & chamber.row(rock_bottom + 2) == 0
+        && (current_rock[3] >> 1) & chamber.row(rock_bottom + 3) == 0
+    {
+        current_rock[0] >>= 1;
+        current_rock[1] >>= 1;
+        current_rock[2] >>= 1;
+        current_rock[3] >>= 1;
+    }
+}
+
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
     let mut rocks = ROCKS.iter().copied().cycle();
     let mut jets = puzzle.jets.iter().cycle();
@@ -162,62 +188,52 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
     let mut rock_count = 0;
     let mut current_rock = rocks.next().unwrap();
     // Represents the bottom of the current rock.
-    let mut rock_pos = 0;
+    let mut rock_bottom = 0;
     while rock_count < 2023 {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
-                rock_pos = chamber.top + 4;
-                state = State::Jet;
+                // Shortcut the simulation. Mainly saves some falling checks.
+                // Each rock will (potentially) shift 4x and fall 3x.
+                rock_bottom = chamber.top + 1;
+                for _ in 0..4 {
+                    match jets.next().unwrap() {
+                        Jet::Left => {
+                            move_left_if_possible(&chamber, rock_bottom, &mut current_rock)
+                        }
+                        Jet::Right => {
+                            move_right_if_possible(&chamber, rock_bottom, &mut current_rock)
+                        }
+                    };
+                }
+                state = State::Fall;
                 rock_count += 1;
                 continue;
             }
             State::Fall => {
-                if current_rock[0] & chamber.row(rock_pos - 1) != 0
-                    || current_rock[1] & chamber.row(rock_pos) != 0
-                    || current_rock[2] & chamber.row(rock_pos + 1) != 0
-                    || current_rock[3] & chamber.row(rock_pos + 2) != 0
+                if current_rock[0] & chamber.row(rock_bottom - 1) != 0
+                    || current_rock[1] & chamber.row(rock_bottom) != 0
+                    || current_rock[2] & chamber.row(rock_bottom + 1) != 0
+                    || current_rock[3] & chamber.row(rock_bottom + 2) != 0
                 {
                     chamber.maybe_update_top(
-                        rock_pos + current_rock.iter().filter(|&&x| x != 0).count() - 1,
+                        rock_bottom + current_rock.iter().filter(|&&x| x != 0).count() - 1,
                     );
-                    *chamber.mut_row(rock_pos) |= current_rock[0];
-                    *chamber.mut_row(rock_pos + 1) |= current_rock[1];
-                    *chamber.mut_row(rock_pos + 2) |= current_rock[2];
-                    *chamber.mut_row(rock_pos + 3) |= current_rock[3];
+                    *chamber.mut_row(rock_bottom) |= current_rock[0];
+                    *chamber.mut_row(rock_bottom + 1) |= current_rock[1];
+                    *chamber.mut_row(rock_bottom + 2) |= current_rock[2];
+                    *chamber.mut_row(rock_bottom + 3) |= current_rock[3];
                     state = State::NewRock;
                     continue;
                 }
-                rock_pos -= 1;
+                rock_bottom -= 1;
                 state = State::Jet;
                 continue;
             }
             State::Jet => {
                 match jets.next().unwrap() {
-                    Jet::Left => {
-                        if (current_rock[0] << 1) & chamber.row(rock_pos) == 0
-                            && (current_rock[1] << 1) & chamber.row(rock_pos + 1) == 0
-                            && (current_rock[2] << 1) & chamber.row(rock_pos + 2) == 0
-                            && (current_rock[3] << 1) & chamber.row(rock_pos + 3) == 0
-                        {
-                            current_rock[0] <<= 1;
-                            current_rock[1] <<= 1;
-                            current_rock[2] <<= 1;
-                            current_rock[3] <<= 1;
-                        }
-                    }
-                    Jet::Right => {
-                        if (current_rock[0] >> 1) & chamber.row(rock_pos) == 0
-                            && (current_rock[1] >> 1) & chamber.row(rock_pos + 1) == 0
-                            && (current_rock[2] >> 1) & chamber.row(rock_pos + 2) == 0
-                            && (current_rock[3] >> 1) & chamber.row(rock_pos + 3) == 0
-                        {
-                            current_rock[0] >>= 1;
-                            current_rock[1] >>= 1;
-                            current_rock[2] >>= 1;
-                            current_rock[3] >>= 1;
-                        }
-                    }
+                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, &mut current_rock),
+                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, &mut current_rock),
                 };
                 state = State::Fall;
                 continue;
@@ -237,65 +253,55 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
     let mut rock_count = 0;
     let mut current_rock = rocks.next().unwrap();
     // Represents the bottom of the current rock.
-    let mut rock_pos = 0;
+    let mut rock_bottom = 0;
     while rock_count < 1_000_000_000_000u64 {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
-                rock_pos = chamber.top + 4;
-                state = State::Jet;
+                // Shortcut the simulation. Mainly saves some falling checks.
+                // Each rock will (potentially) shift 4x and fall 3x.
+                rock_bottom = chamber.top + 1;
+                for _ in 0..4 {
+                    match jets.next().unwrap() {
+                        Jet::Left => {
+                            move_left_if_possible(&chamber, rock_bottom, &mut current_rock)
+                        }
+                        Jet::Right => {
+                            move_right_if_possible(&chamber, rock_bottom, &mut current_rock)
+                        }
+                    };
+                }
+                state = State::Fall;
                 rock_count += 1;
                 if rock_count % 100_000_000 == 0 {
-                    println!("rock count: {}", rock_count);
+                    println!("count: {}", rock_count);
                 }
                 continue;
             }
             State::Fall => {
-                if current_rock[0] & chamber.row(rock_pos - 1) != 0
-                    || current_rock[1] & chamber.row(rock_pos) != 0
-                    || current_rock[2] & chamber.row(rock_pos + 1) != 0
-                    || current_rock[3] & chamber.row(rock_pos + 2) != 0
+                if current_rock[0] & chamber.row(rock_bottom - 1) != 0
+                    || current_rock[1] & chamber.row(rock_bottom) != 0
+                    || current_rock[2] & chamber.row(rock_bottom + 1) != 0
+                    || current_rock[3] & chamber.row(rock_bottom + 2) != 0
                 {
                     chamber.maybe_update_top(
-                        rock_pos + current_rock.iter().filter(|&&x| x != 0).count() - 1,
+                        rock_bottom + current_rock.iter().filter(|&&x| x != 0).count() - 1,
                     );
-                    *chamber.mut_row(rock_pos) |= current_rock[0];
-                    *chamber.mut_row(rock_pos + 1) |= current_rock[1];
-                    *chamber.mut_row(rock_pos + 2) |= current_rock[2];
-                    *chamber.mut_row(rock_pos + 3) |= current_rock[3];
+                    *chamber.mut_row(rock_bottom) |= current_rock[0];
+                    *chamber.mut_row(rock_bottom + 1) |= current_rock[1];
+                    *chamber.mut_row(rock_bottom + 2) |= current_rock[2];
+                    *chamber.mut_row(rock_bottom + 3) |= current_rock[3];
                     state = State::NewRock;
                     continue;
                 }
-                rock_pos -= 1;
+                rock_bottom -= 1;
                 state = State::Jet;
                 continue;
             }
             State::Jet => {
                 match jets.next().unwrap() {
-                    Jet::Left => {
-                        if (current_rock[0] << 1) & chamber.row(rock_pos) == 0
-                            && (current_rock[1] << 1) & chamber.row(rock_pos + 1) == 0
-                            && (current_rock[2] << 1) & chamber.row(rock_pos + 2) == 0
-                            && (current_rock[3] << 1) & chamber.row(rock_pos + 3) == 0
-                        {
-                            current_rock[0] <<= 1;
-                            current_rock[1] <<= 1;
-                            current_rock[2] <<= 1;
-                            current_rock[3] <<= 1;
-                        }
-                    }
-                    Jet::Right => {
-                        if (current_rock[0] >> 1) & chamber.row(rock_pos) == 0
-                            && (current_rock[1] >> 1) & chamber.row(rock_pos + 1) == 0
-                            && (current_rock[2] >> 1) & chamber.row(rock_pos + 2) == 0
-                            && (current_rock[3] >> 1) & chamber.row(rock_pos + 3) == 0
-                        {
-                            current_rock[0] >>= 1;
-                            current_rock[1] >>= 1;
-                            current_rock[2] >>= 1;
-                            current_rock[3] >>= 1;
-                        }
-                    }
+                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, &mut current_rock),
+                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, &mut current_rock),
                 };
                 state = State::Fall;
                 continue;
