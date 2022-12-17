@@ -87,8 +87,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 
 enum State {
     NewRock,
-    Fall,
-    Jet,
+    FallJet,
 }
 
 const GRID_ROWS: usize = 32768;
@@ -178,7 +177,7 @@ fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &
     }
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
+fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     let mut rocks = ROCKS.iter().copied().cycle();
     let mut jets = puzzle.jets.iter().cycle();
 
@@ -189,7 +188,7 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
     let mut current_rock = rocks.next().unwrap();
     // Represents the bottom of the current rock.
     let mut rock_bottom = 0;
-    while rock_count < 2023 {
+    while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
@@ -206,79 +205,14 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                         }
                     };
                 }
-                state = State::Fall;
-                rock_count += 1;
-                continue;
-            }
-            State::Fall => {
-                if current_rock[0] & chamber.row(rock_bottom - 1) != 0
-                    || current_rock[1] & chamber.row(rock_bottom) != 0
-                    || current_rock[2] & chamber.row(rock_bottom + 1) != 0
-                    || current_rock[3] & chamber.row(rock_bottom + 2) != 0
-                {
-                    chamber.maybe_update_top(
-                        rock_bottom + current_rock.iter().filter(|&&x| x != 0).count() - 1,
-                    );
-                    *chamber.mut_row(rock_bottom) |= current_rock[0];
-                    *chamber.mut_row(rock_bottom + 1) |= current_rock[1];
-                    *chamber.mut_row(rock_bottom + 2) |= current_rock[2];
-                    *chamber.mut_row(rock_bottom + 3) |= current_rock[3];
-                    state = State::NewRock;
-                    continue;
-                }
-                rock_bottom -= 1;
-                state = State::Jet;
-                continue;
-            }
-            State::Jet => {
-                match jets.next().unwrap() {
-                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, &mut current_rock),
-                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, &mut current_rock),
-                };
-                state = State::Fall;
-                continue;
-            }
-        }
-    }
-    Ok(chamber.top as usize)
-}
-
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let mut rocks = ROCKS.iter().copied().cycle();
-    let mut jets = puzzle.jets.iter().cycle();
-
-    let mut state = State::NewRock;
-    let mut chamber = BitGrid::new();
-
-    let mut rock_count = 0;
-    let mut current_rock = rocks.next().unwrap();
-    // Represents the bottom of the current rock.
-    let mut rock_bottom = 0;
-    while rock_count < 1_000_000_000_000u64 {
-        match state {
-            State::NewRock => {
-                current_rock = rocks.next().unwrap();
-                // Shortcut the simulation. Mainly saves some falling checks.
-                // Each rock will (potentially) shift 4x and fall 3x.
-                rock_bottom = chamber.top + 1;
-                for _ in 0..4 {
-                    match jets.next().unwrap() {
-                        Jet::Left => {
-                            move_left_if_possible(&chamber, rock_bottom, &mut current_rock)
-                        }
-                        Jet::Right => {
-                            move_right_if_possible(&chamber, rock_bottom, &mut current_rock)
-                        }
-                    };
-                }
-                state = State::Fall;
+                state = State::FallJet;
                 rock_count += 1;
                 if rock_count % 100_000_000 == 0 {
                     println!("count: {}", rock_count);
                 }
                 continue;
             }
-            State::Fall => {
+            State::FallJet => {
                 if current_rock[0] & chamber.row(rock_bottom - 1) != 0
                     || current_rock[1] & chamber.row(rock_bottom) != 0
                     || current_rock[2] & chamber.row(rock_bottom + 1) != 0
@@ -295,20 +229,23 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
                     continue;
                 }
                 rock_bottom -= 1;
-                state = State::Jet;
-                continue;
-            }
-            State::Jet => {
                 match jets.next().unwrap() {
                     Jet::Left => move_left_if_possible(&chamber, rock_bottom, &mut current_rock),
                     Jet::Right => move_right_if_possible(&chamber, rock_bottom, &mut current_rock),
                 };
-                state = State::Fall;
                 continue;
             }
         }
     }
-    Ok(chamber.top as usize)
+    chamber.top
+}
+
+fn part1(puzzle: &Puzzle) -> usize {
+    run_simulation::<2023>(puzzle)
+}
+
+fn part2(puzzle: &Puzzle) -> usize {
+    run_simulation::<1_000_000_000_000>(puzzle)
 }
 
 fn main() -> Result<(), Oops> {
@@ -318,8 +255,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -332,11 +269,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(3068, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(3068, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
     }
 }
