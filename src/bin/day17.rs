@@ -192,8 +192,10 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
-                // Shortcut the simulation. Mainly saves some falling checks.
-                // Each rock will (potentially) shift 4x and fall 3x.
+                // Normally, rocks start at chamber.top + 4. However, it is guaranteed that each
+                // rock can shift 4x and fall 3x without hitting anything (other than the side
+                // walls), so the falls can be unconditionally simulated, while a lookup table can
+                // be used for the side walls.
                 rock_bottom = chamber.top + 1;
                 for _ in 0..4 {
                     match jets.next().unwrap() {
@@ -215,8 +217,6 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
             State::FallJet => {
                 if current_rock[0] & chamber.row(rock_bottom - 1) != 0
                     || current_rock[1] & chamber.row(rock_bottom) != 0
-                    || current_rock[2] & chamber.row(rock_bottom + 1) != 0
-                    || current_rock[3] & chamber.row(rock_bottom + 2) != 0
                 {
                     chamber.maybe_update_top(
                         rock_bottom + current_rock.iter().filter(|&&x| x != 0).count() - 1,
