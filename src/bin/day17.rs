@@ -27,6 +27,14 @@ struct Puzzle {
 }
 
 const ROCKS: [[u16; 4]; 5] = [
+    // This is actually the last rock, but it goes first since the iterator is double-advanced the
+    // first time through the loop.
+    [
+        0b0001100000000000,
+        0b0001100000000000,
+        0b0000000000000000,
+        0b0000000000000000,
+    ],
     [
         0b0001111000000000,
         0b0000000000000000,
@@ -50,12 +58,6 @@ const ROCKS: [[u16; 4]; 5] = [
         0b0001000000000000,
         0b0001000000000000,
         0b0001000000000000,
-    ],
-    [
-        0b0001100000000000,
-        0b0001100000000000,
-        0b0000000000000000,
-        0b0000000000000000,
     ],
 ];
 
@@ -118,6 +120,19 @@ impl BitGrid {
     fn mut_row(&mut self, n: usize) -> &mut u16 {
         self.data.get_mut(n - self.bot).unwrap()
     }
+
+    fn render(&self) {
+        for i in (self.bot..=self.top).rev() {
+            let data = self.row(i);
+            println!(
+                "{}",
+                (7..16)
+                    .rev()
+                    .map(|pos| if data & (1 << pos) != 0 { '#' } else { '.' })
+                    .collect::<String>()
+            );
+        }
+    }
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
@@ -146,7 +161,10 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                     || current_rock[2] & chamber.row(rock_pos + 1) != 0
                     || current_rock[3] & chamber.row(rock_pos + 2) != 0
                 {
-                    chamber.top = rock_pos + current_rock.iter().filter(|&&x| x != 0).count();
+                    chamber.top = std::cmp::max(
+                        chamber.top,
+                        rock_pos + current_rock.iter().filter(|&&x| x != 0).count() - 1,
+                    );
                     *chamber.mut_row(rock_pos) |= current_rock[0];
                     *chamber.mut_row(rock_pos + 1) |= current_rock[1];
                     *chamber.mut_row(rock_pos + 2) |= current_rock[2];
