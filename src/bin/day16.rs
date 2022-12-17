@@ -134,14 +134,10 @@ impl Puzzle {
             targets.swap(x, assigned);
         }
 
-        for i in assigned..targets.len() {
-            let mut best_seen_key = targets[i..].to_vec();
-            best_seen_key.sort();
-            best_seen
-                .entry(best_seen_key)
-                .and_modify(|current| *current = std::cmp::max(*current, best))
-                .or_insert(best);
-        }
+        best_seen
+            .entry(best_seen_key)
+            .and_modify(|current| *current = std::cmp::max(*current, best))
+            .or_insert(best);
 
         best
     }
