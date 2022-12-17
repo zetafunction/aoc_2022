@@ -92,59 +92,58 @@ enum State {
     FallJet,
 }
 
-const GRID_ROWS: usize = 32768;
+const GRID_ROWS: usize = 1024;
 
 struct BitGrid {
-    top: usize,
-    bot: usize,
+    base: usize,
     used: usize,
-    data: VecDeque<Row>,
+    data: [Row; GRID_ROWS],
 }
 
 impl BitGrid {
     fn new() -> Self {
-        let mut data = VecDeque::with_capacity(GRID_ROWS);
-        data.push_back(0xffffffff);
-        data.extend(std::iter::repeat(0x80ffffff).take(GRID_ROWS - 1));
-        BitGrid {
-            top: 0,
-            bot: 0,
-            used: 1,
-            data,
+        let mut grid = BitGrid {
+            base: 0,
+            used: 10,
+            data: [0; GRID_ROWS],
+        };
+        grid.data[0] = 0xffffffff;
+        for i in 1..GRID_ROWS {
+            grid.data[i] = 0x80ffffff;
         }
+        grid
     }
 
-    fn maybe_update_top(&mut self, candidate: usize) {
-        if candidate <= self.top {
-            return;
-        }
-        let diff = candidate - self.top;
-        self.used += diff;
-        self.top = candidate;
+    fn mark_new_rows_used(&mut self, delta: usize) {
+        self.used += delta;
 
-        if GRID_ROWS - self.used < 1000 {
-            self.data.drain(0..GRID_ROWS / 2);
-            self.bot += GRID_ROWS / 2;
-            self.used -= GRID_ROWS / 2;
-            self.data
-                .extend(std::iter::repeat(0x80ffffff).take(GRID_ROWS / 2));
+        if self.used > GRID_ROWS - 10 {
+            let capacity_to_free = GRID_ROWS / 2;
+            let old_base = self.base;
+            let new_base = self.base + capacity_to_free;
+            for i in old_base..new_base {
+                self.data[i % GRID_ROWS] = 0x80ffffff;
+            }
+            self.base = new_base % GRID_ROWS;
+            self.used -= capacity_to_free;
         }
     }
 
     fn row(&self, n: usize) -> Row {
-        self.data.get(n - self.bot).copied().unwrap()
+        self.data[n % GRID_ROWS]
     }
 
     fn mut_row(&mut self, n: usize) -> &mut Row {
-        self.data.get_mut(n - self.bot).unwrap()
+        &mut self.data[n % GRID_ROWS]
     }
 
     fn render(&self) {
-        for i in (self.bot..=self.top).rev() {
-            let data = self.row(i);
+        println!("drawing from {} to {}", self.base, self.base + self.used);
+        for i in (self.base..=self.base + self.used).rev() {
+            let data = self.data[i % GRID_ROWS];
             println!(
                 "{}",
-                (7..16)
+                (23..32)
                     .rev()
                     .map(|pos| if data & (1 << pos) != 0 { '#' } else { '.' })
                     .collect::<String>()
@@ -189,16 +188,17 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     let mut rock_count = 0;
     let mut current_rock = rocks.next().unwrap();
     // Represents the bottom of the current rock.
-    let mut rock_bottom = 0;
+    let mut topmost_rock = 0;
+    let mut rock_bottom = 1;
     while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
                 current_rock = rocks.next().unwrap();
+                rock_bottom = topmost_rock + 1;
                 // Normally, rocks start at chamber.top + 4. However, it is guaranteed that each
                 // rock can shift 4x and fall 3x without hitting anything (other than the side
                 // walls), so the falls can be unconditionally simulated, while a lookup table can
                 // be used for the side walls.
-                rock_bottom = chamber.top + 1;
                 for _ in 0..4 {
                     match jets.next().unwrap() {
                         Jet::Left => {
@@ -220,9 +220,16 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 if current_rock[0] & chamber.row(rock_bottom - 1) != 0
                     || current_rock[1] & chamber.row(rock_bottom) != 0
                 {
-                    chamber.maybe_update_top(
-                        rock_bottom + current_rock.iter().filter(|&&x| x != 0).count() - 1,
-                    );
+                    let current_rock_height = current_rock.iter().filter(|&&x| x != 0).count();
+
+                    // rock_bottom is where rocks spawn, which is one above the actual topmost
+                    // rock.
+                    let possible_new_top = rock_bottom + current_rock_height - 1;
+                    if possible_new_top > topmost_rock {
+                        chamber.mark_new_rows_used(possible_new_top - topmost_rock);
+                        topmost_rock = possible_new_top;
+                    }
+
                     *chamber.mut_row(rock_bottom) |= current_rock[0];
                     *chamber.mut_row(rock_bottom + 1) |= current_rock[1];
                     *chamber.mut_row(rock_bottom + 2) |= current_rock[2];
@@ -239,7 +246,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
             }
         }
     }
-    chamber.top
+    topmost_rock
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
@@ -247,7 +254,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    // return run_simulation::<1_000_000_000>(puzzle);
+    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_000>(puzzle)
 }
 
