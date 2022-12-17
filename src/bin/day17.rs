@@ -69,9 +69,7 @@ enum State {
 }
 
 fn render_chamber(chamber: &HashSet<(i64, i64)>, top: i64) {
-    println!(".......");
-    println!(".......");
-    for y in (0..=top).rev() {
+    for y in (0..=top + 4).rev().take(20) {
         println!(
             "{}",
             (0..=6)
@@ -102,10 +100,10 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                 continue;
             }
             State::Fall => {
-                if let Some(_) = current_rock.iter().find_map(|&pos| {
-                    let pos = (pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1);
-                    chamber.get(&pos)
-                }) {
+                if current_rock
+                    .iter()
+                    .any(|&pos| chamber.contains(&(pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1)))
+                {
                     for pos in current_rock.iter() {
                         top = std::cmp::max(top, pos.1 + rock_pos.1);
                         chamber.insert((pos.0 + rock_pos.0, pos.1 + rock_pos.1));
@@ -122,19 +120,10 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                     Jet::Left => -1,
                     Jet::Right => 1,
                 };
-                if let None = current_rock.iter().find_map(|&pos| {
-                    if pos.0 + rock_pos.0 + offset < 0 {
-                        Some(true)
-                    } else if pos.0 + rock_pos.0 + offset >= 7 {
-                        Some(true)
-                    } else if let Some(_) = current_rock.iter().find_map(|&pos| {
-                        let pos = (pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1);
-                        chamber.get(&pos)
-                    }) {
-                        Some(true)
-                    } else {
-                        None
-                    }
+                if !current_rock.iter().any(|&pos| {
+                    pos.0 + rock_pos.0 + offset < 0
+                        || pos.0 + rock_pos.0 + offset >= 7
+                        || chamber.contains(&(pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1))
                 }) {
                     rock_pos = (rock_pos.0 + offset, rock_pos.1);
                 }
@@ -162,17 +151,17 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
                 current_rock = rocks.next().unwrap();
                 rock_pos = (2, top + 4);
                 state = State::Jet;
-                if rock_count % puzzle.jets.len() as i64 == 0 {
-                    println!("current top (iteration {}): {}", rock_count, top);
-                }
                 rock_count += 1;
+                if rock_count % (5 * 7 * puzzle.jets.len()) as i64 == 0 {
+                    render_chamber(&chamber, top);
+                }
                 continue;
             }
             State::Fall => {
-                if let Some(_) = current_rock.iter().find_map(|&pos| {
-                    let pos = (pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1);
-                    chamber.get(&pos)
-                }) {
+                if current_rock
+                    .iter()
+                    .any(|&pos| chamber.contains(&(pos.0 + rock_pos.0, pos.1 + rock_pos.1 - 1)))
+                {
                     for pos in current_rock.iter() {
                         top = std::cmp::max(top, pos.1 + rock_pos.1);
                         chamber.insert((pos.0 + rock_pos.0, pos.1 + rock_pos.1));
@@ -189,19 +178,10 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
                     Jet::Left => -1,
                     Jet::Right => 1,
                 };
-                if let None = current_rock.iter().find_map(|&pos| {
-                    if pos.0 + rock_pos.0 + offset < 0 {
-                        Some(true)
-                    } else if pos.0 + rock_pos.0 + offset >= 7 {
-                        Some(true)
-                    } else if let Some(_) = current_rock.iter().find_map(|&pos| {
-                        let pos = (pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1);
-                        chamber.get(&pos)
-                    }) {
-                        Some(true)
-                    } else {
-                        None
-                    }
+                if !current_rock.iter().any(|&pos| {
+                    pos.0 + rock_pos.0 + offset < 0
+                        || pos.0 + rock_pos.0 + offset >= 7
+                        || chamber.contains(&(pos.0 + rock_pos.0 + offset, pos.1 + rock_pos.1))
                 }) {
                     rock_pos = (rock_pos.0 + offset, rock_pos.1);
                 }
