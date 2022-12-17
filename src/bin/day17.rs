@@ -17,6 +17,8 @@ use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
 
+type Row = u32;
+
 enum Jet {
     Left,
     Right,
@@ -26,7 +28,7 @@ struct Puzzle {
     jets: Vec<Jet>,
 }
 
-const ROCKS: [[u32; 4]; 5] = [
+const ROCKS: [[Row; 4]; 5] = [
     // This is actually the last rock, but it goes first since the iterator is double-advanced the
     // first time through the loop.
     [
@@ -96,7 +98,7 @@ struct BitGrid {
     top: usize,
     bot: usize,
     used: usize,
-    data: VecDeque<u32>,
+    data: VecDeque<Row>,
 }
 
 impl BitGrid {
@@ -129,11 +131,11 @@ impl BitGrid {
         }
     }
 
-    fn row(&self, n: usize) -> u32 {
+    fn row(&self, n: usize) -> Row {
         self.data.get(n - self.bot).copied().unwrap()
     }
 
-    fn mut_row(&mut self, n: usize) -> &mut u32 {
+    fn mut_row(&mut self, n: usize) -> &mut Row {
         self.data.get_mut(n - self.bot).unwrap()
     }
 
@@ -151,7 +153,7 @@ impl BitGrid {
     }
 }
 
-fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u32; 4]) {
+fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [Row; 4]) {
     if (current_rock[0] << 1) & chamber.row(rock_bottom) == 0
         && (current_rock[1] << 1) & chamber.row(rock_bottom + 1) == 0
         && (current_rock[2] << 1) & chamber.row(rock_bottom + 2) == 0
@@ -164,7 +166,7 @@ fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &m
     }
 }
 
-fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u32; 4]) {
+fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [Row; 4]) {
     if (current_rock[0] >> 1) & chamber.row(rock_bottom) == 0
         && (current_rock[1] >> 1) & chamber.row(rock_bottom + 1) == 0
         && (current_rock[2] >> 1) & chamber.row(rock_bottom + 2) == 0
