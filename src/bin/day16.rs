@@ -16,6 +16,7 @@ use aoc_2022::{oops, oops::Oops};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::io::{self, Read};
+use std::ops::BitOr;
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -54,12 +55,27 @@ impl Goal {
     }
 }
 
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct LabelSet(u64);
+
+impl BitOr<Label> for LabelSet {
+    type Output = Self;
+
+    fn bitor(self: Self, rhs: Label) -> Self {
+        Self(self.0 | rhs.0)
+    }
+}
+
+fn labels_to_set(labels: &[Label]) -> LabelSet {
+    labels.iter().fold(LabelSet(0), |acc, &label| acc | label)
+}
+
 impl Puzzle {
     fn find_path<'a, const N: usize>(
         &self,
         targets: &mut Vec<Label>,
         assigned: usize,
-        best_seen: &mut HashMap<Vec<Label>, i32>,
+        best_seen: &mut HashMap<LabelSet, i32>,
         goals: &[Goal; N],
         so_far: i32,
         remaining_time: i32,
@@ -85,9 +101,7 @@ impl Puzzle {
             })
             .sum();
 
-        // The best seen key is a vector of the remaining unassigned valves ordered lexicographically.
-        let mut best_seen_key = targets[assigned..].to_vec();
-        best_seen_key.sort();
+        let best_seen_key = labels_to_set(&targets[assigned..]);
         if let Some(best_seen) = best_seen.get(&best_seen_key) {
             if *best_seen > max_possible_remaining + so_far {
                 // There is already another path that uses the remaining unassigned valves in a
@@ -144,11 +158,18 @@ impl Puzzle {
 
     // Note: this counts physical distance and does not include the time to activate a valve.
     fn distance_between(&self, from: Label, to: Label) -> i32 {
-        return *self.distances.get(&(from, to)).unwrap();
+        *self
+            .distances
+            .get(&(from, to))
+            .expect("distances should not be missing entries")
+        //            .expect(&format!("{:?} <-> {:?} not in distance table", from, to))
     }
 
     fn flow_for(&self, valve: Label) -> i32 {
-        *self.flows.get(&valve).unwrap()
+        *self
+            .flows
+            .get(&valve)
+            .expect("flows should not be missing entries")
     }
 
     fn calculate_distances(valves: &HashMap<Label, Valve>) -> HashMap<(Label, Label), i32> {
