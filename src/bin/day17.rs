@@ -26,38 +26,38 @@ struct Puzzle {
     jets: Vec<Jet>,
 }
 
-const ROCKS: [[u16; 4]; 5] = [
+const ROCKS: [[u32; 4]; 5] = [
     // This is actually the last rock, but it goes first since the iterator is double-advanced the
     // first time through the loop.
     [
-        0b0001100000000000,
-        0b0001100000000000,
-        0b0000000000000000,
-        0b0000000000000000,
+        0b00011000000000000000000000000000,
+        0b00011000000000000000000000000000,
+        0b00000000000000000000000000000000,
+        0b00000000000000000000000000000000,
     ],
     [
-        0b0001111000000000,
-        0b0000000000000000,
-        0b0000000000000000,
-        0b0000000000000000,
+        0b00011110000000000000000000000000,
+        0b00000000000000000000000000000000,
+        0b00000000000000000000000000000000,
+        0b00000000000000000000000000000000,
     ],
     [
-        0b0000100000000000,
-        0b0001110000000000,
-        0b0000100000000000,
-        0b0000000000000000,
+        0b00001000000000000000000000000000,
+        0b00011100000000000000000000000000,
+        0b00001000000000000000000000000000,
+        0b00000000000000000000000000000000,
     ],
     [
-        0b0001110000000000,
-        0b0000010000000000,
-        0b0000010000000000,
-        0b0000000000000000,
+        0b00011100000000000000000000000000,
+        0b00000100000000000000000000000000,
+        0b00000100000000000000000000000000,
+        0b00000000000000000000000000000000,
     ],
     [
-        0b0001000000000000,
-        0b0001000000000000,
-        0b0001000000000000,
-        0b0001000000000000,
+        0b00010000000000000000000000000000,
+        0b00010000000000000000000000000000,
+        0b00010000000000000000000000000000,
+        0b00010000000000000000000000000000,
     ],
 ];
 
@@ -96,14 +96,14 @@ struct BitGrid {
     top: usize,
     bot: usize,
     used: usize,
-    data: VecDeque<u16>,
+    data: VecDeque<u32>,
 }
 
 impl BitGrid {
     fn new() -> Self {
         let mut data = VecDeque::with_capacity(GRID_ROWS);
-        data.push_back(0xffff);
-        data.extend(std::iter::repeat(0x80ff).take(GRID_ROWS - 1));
+        data.push_back(0xffffffff);
+        data.extend(std::iter::repeat(0x80ffffff).take(GRID_ROWS - 1));
         BitGrid {
             top: 0,
             bot: 0,
@@ -125,15 +125,15 @@ impl BitGrid {
             self.bot += GRID_ROWS / 2;
             self.used -= GRID_ROWS / 2;
             self.data
-                .extend(std::iter::repeat(0x80ff).take(GRID_ROWS / 2));
+                .extend(std::iter::repeat(0x80ffffff).take(GRID_ROWS / 2));
         }
     }
 
-    fn row(&self, n: usize) -> u16 {
+    fn row(&self, n: usize) -> u32 {
         self.data.get(n - self.bot).copied().unwrap()
     }
 
-    fn mut_row(&mut self, n: usize) -> &mut u16 {
+    fn mut_row(&mut self, n: usize) -> &mut u32 {
         self.data.get_mut(n - self.bot).unwrap()
     }
 
@@ -151,7 +151,7 @@ impl BitGrid {
     }
 }
 
-fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u16; 4]) {
+fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u32; 4]) {
     if (current_rock[0] << 1) & chamber.row(rock_bottom) == 0
         && (current_rock[1] << 1) & chamber.row(rock_bottom + 1) == 0
         && (current_rock[2] << 1) & chamber.row(rock_bottom + 2) == 0
@@ -164,7 +164,7 @@ fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &m
     }
 }
 
-fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u16; 4]) {
+fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [u32; 4]) {
     if (current_rock[0] >> 1) & chamber.row(rock_bottom) == 0
         && (current_rock[1] >> 1) & chamber.row(rock_bottom + 1) == 0
         && (current_rock[2] >> 1) & chamber.row(rock_bottom + 2) == 0
@@ -245,6 +245,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
+    // return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_000>(puzzle)
 }
 
