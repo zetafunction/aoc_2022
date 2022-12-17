@@ -61,7 +61,7 @@ struct LabelSet(u64);
 impl BitOr<Label> for LabelSet {
     type Output = Self;
 
-    fn bitor(self: Self, rhs: Label) -> Self {
+    fn bitor(self, rhs: Label) -> Self {
         Self(self.0 | rhs.0)
     }
 }
@@ -71,7 +71,7 @@ fn labels_to_set(labels: &[Label]) -> LabelSet {
 }
 
 impl Puzzle {
-    fn find_path<'a, const N: usize>(
+    fn find_path<const N: usize>(
         &self,
         targets: &mut Vec<Label>,
         assigned: usize,
@@ -114,7 +114,7 @@ impl Puzzle {
             .iter()
             .enumerate()
             .find_map(|(i, g)| if g.left == 0 { Some(i) } else { None })
-            .expect(&format!("no goals reached! {:?}", goals));
+            .expect("goal should have been reached");
 
         let mut best = so_far;
 
