@@ -91,7 +91,7 @@ enum State {
     Jet,
 }
 
-const GRID_SIZE: usize = 32768;
+const GRID_ROWS: usize = 32768;
 
 struct BitGrid {
     top: usize,
@@ -102,14 +102,31 @@ struct BitGrid {
 
 impl BitGrid {
     fn new() -> Self {
-        let mut data = VecDeque::with_capacity(GRID_SIZE);
+        let mut data = VecDeque::with_capacity(GRID_ROWS);
         data.push_back(0xffff);
-        data.extend(std::iter::repeat(0x80ff).take(GRID_SIZE - 1));
+        data.extend(std::iter::repeat(0x80ff).take(GRID_ROWS - 1));
         BitGrid {
             top: 0,
             bot: 0,
             used: 1,
             data,
+        }
+    }
+
+    fn maybe_update_top(&mut self, candidate: usize) {
+        if candidate <= self.top {
+            return;
+        }
+        let diff = candidate - self.top;
+        self.used += diff;
+        self.top = candidate;
+
+        if GRID_ROWS - self.used < 1000 {
+            self.data.drain(0..GRID_ROWS / 2);
+            self.bot += GRID_ROWS / 2;
+            self.used -= GRID_ROWS / 2;
+            self.data
+                .extend(std::iter::repeat(0x80ff).take(GRID_ROWS / 2));
         }
     }
 
@@ -161,8 +178,7 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
                     || current_rock[2] & chamber.row(rock_pos + 1) != 0
                     || current_rock[3] & chamber.row(rock_pos + 2) != 0
                 {
-                    chamber.top = std::cmp::max(
-                        chamber.top,
+                    chamber.maybe_update_top(
                         rock_pos + current_rock.iter().filter(|&&x| x != 0).count() - 1,
                     );
                     *chamber.mut_row(rock_pos) |= current_rock[0];
@@ -212,7 +228,81 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(0)
+    let mut rocks = ROCKS.iter().copied().cycle();
+    let mut jets = puzzle.jets.iter().cycle();
+
+    let mut state = State::NewRock;
+    let mut chamber = BitGrid::new();
+
+    let mut rock_count = 0;
+    let mut current_rock = rocks.next().unwrap();
+    // Represents the bottom of the current rock.
+    let mut rock_pos = 0;
+    while rock_count < 1_000_000_000_000u64 {
+        match state {
+            State::NewRock => {
+                current_rock = rocks.next().unwrap();
+                rock_pos = chamber.top + 4;
+                state = State::Jet;
+                rock_count += 1;
+                if rock_count % 100_000_000 == 0 {
+                    println!("rock count: {}", rock_count);
+                }
+                continue;
+            }
+            State::Fall => {
+                if current_rock[0] & chamber.row(rock_pos - 1) != 0
+                    || current_rock[1] & chamber.row(rock_pos) != 0
+                    || current_rock[2] & chamber.row(rock_pos + 1) != 0
+                    || current_rock[3] & chamber.row(rock_pos + 2) != 0
+                {
+                    chamber.maybe_update_top(
+                        rock_pos + current_rock.iter().filter(|&&x| x != 0).count() - 1,
+                    );
+                    *chamber.mut_row(rock_pos) |= current_rock[0];
+                    *chamber.mut_row(rock_pos + 1) |= current_rock[1];
+                    *chamber.mut_row(rock_pos + 2) |= current_rock[2];
+                    *chamber.mut_row(rock_pos + 3) |= current_rock[3];
+                    state = State::NewRock;
+                    continue;
+                }
+                rock_pos -= 1;
+                state = State::Jet;
+                continue;
+            }
+            State::Jet => {
+                match jets.next().unwrap() {
+                    Jet::Left => {
+                        if (current_rock[0] << 1) & chamber.row(rock_pos) == 0
+                            && (current_rock[1] << 1) & chamber.row(rock_pos + 1) == 0
+                            && (current_rock[2] << 1) & chamber.row(rock_pos + 2) == 0
+                            && (current_rock[3] << 1) & chamber.row(rock_pos + 3) == 0
+                        {
+                            current_rock[0] <<= 1;
+                            current_rock[1] <<= 1;
+                            current_rock[2] <<= 1;
+                            current_rock[3] <<= 1;
+                        }
+                    }
+                    Jet::Right => {
+                        if (current_rock[0] >> 1) & chamber.row(rock_pos) == 0
+                            && (current_rock[1] >> 1) & chamber.row(rock_pos + 1) == 0
+                            && (current_rock[2] >> 1) & chamber.row(rock_pos + 2) == 0
+                            && (current_rock[3] >> 1) & chamber.row(rock_pos + 3) == 0
+                        {
+                            current_rock[0] >>= 1;
+                            current_rock[1] >>= 1;
+                            current_rock[2] >>= 1;
+                            current_rock[3] >>= 1;
+                        }
+                    }
+                };
+                state = State::Fall;
+                continue;
+            }
+        }
+    }
+    Ok(chamber.top as usize)
 }
 
 fn main() -> Result<(), Oops> {
