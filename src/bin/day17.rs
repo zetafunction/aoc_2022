@@ -227,19 +227,22 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
-                unsafe {
+                current_rock = unsafe {
+                    // jets is a cycled iterator that will never return None.
                     let j1 = jets.next().unwrap_unchecked();
                     let j2 = jets.next().unwrap_unchecked();
                     let j3 = jets.next().unwrap_unchecked();
                     let j4 = jets.next().unwrap_unchecked();
-                    current_rock = *rock_table.get_unchecked(rock_and_jets_to_index(
+                    // TODO: better scope unsafeness for rock lookup table.
+                    *rock_table.get_unchecked(rock_and_jets_to_index(
                         rock_count % ROCKS.len(),
                         *j1,
                         *j2,
                         *j3,
                         *j4,
-                    ));
-                }
+                    ))
+                };
+                // rock_heights is a cycled iterator that will never return None.
                 current_rock_height = unsafe { *rock_heights.next().unwrap_unchecked() };
                 rock_bottom = topmost_rock + 1;
                 // Normally, rocks start at topmost_rock + 4. However, it is guaranteed that each
@@ -276,6 +279,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                     continue;
                 }
                 rock_bottom -= 1;
+                // jets is a cycled iterator that will never return None.
                 current_rock = match unsafe { jets.next().unwrap_unchecked() } {
                     Jet::Left => move_left_if_possible(&chamber, rock_bottom, current_rock),
                     Jet::Right => move_right_if_possible(&chamber, rock_bottom, current_rock),
