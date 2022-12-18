@@ -28,6 +28,7 @@ struct Puzzle {
     jets: Vec<Jet>,
 }
 
+#[allow(clippy::eq_op, clippy::identity_op)]
 const ROCKS: [u64; 5] = [
     (0b0000000000000000 << 48)
         | (0b0000000000000000 << 32)
