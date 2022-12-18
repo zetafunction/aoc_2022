@@ -26,15 +26,6 @@ struct Point3 {
     z: i32,
 }
 
-const NEIGHBOR_VECTORS: &[Vector3] = &[
-    Vector3::new(-1, 0, 0),
-    Vector3::new(1, 0, 0),
-    Vector3::new(0, -1, 0),
-    Vector3::new(0, 1, 0),
-    Vector3::new(0, 0, -1),
-    Vector3::new(0, 0, 1),
-];
-
 struct Neighbors<'a> {
     p: &'a Point3,
     iter: std::slice::Iter<'static, Vector3>,
@@ -58,6 +49,15 @@ impl Point3 {
     }
 
     fn neighbors(&self) -> Neighbors {
+        const NEIGHBOR_VECTORS: &[Vector3] = &[
+            Vector3::new(-1, 0, 0),
+            Vector3::new(1, 0, 0),
+            Vector3::new(0, -1, 0),
+            Vector3::new(0, 1, 0),
+            Vector3::new(0, 0, -1),
+            Vector3::new(0, 0, 1),
+        ];
+
         Neighbors {
             p: self,
             iter: NEIGHBOR_VECTORS.iter(),
