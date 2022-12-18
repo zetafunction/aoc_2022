@@ -27,40 +27,30 @@ struct Puzzle {
     jets: Vec<Jet>,
 }
 
-const ROCKS: [[Row; 4]; 5] = [
-    // This is actually the last rock, but it goes first since the iterator is double-advanced the
-    // first time through the loop.
-    [
-        0b00011000000000000000000000000000,
-        0b00011000000000000000000000000000,
-        0b00000000000000000000000000000000,
-        0b00000000000000000000000000000000,
-    ],
-    [
-        0b00011110000000000000000000000000,
-        0b00000000000000000000000000000000,
-        0b00000000000000000000000000000000,
-        0b00000000000000000000000000000000,
-    ],
-    [
-        0b00001000000000000000000000000000,
-        0b00011100000000000000000000000000,
-        0b00001000000000000000000000000000,
-        0b00000000000000000000000000000000,
-    ],
-    [
-        0b00011100000000000000000000000000,
-        0b00000100000000000000000000000000,
-        0b00000100000000000000000000000000,
-        0b00000000000000000000000000000000,
-    ],
-    [
-        0b00010000000000000000000000000000,
-        0b00010000000000000000000000000000,
-        0b00010000000000000000000000000000,
-        0b00010000000000000000000000000000,
-    ],
+const ROCKS: [u64; 5] = [
+    (0b0000000000000000 << 48)
+        | (0b0000000000000000 << 32)
+        | (0b0000000000000000 << 16)
+        | (0b0001111000000000 << 0),
+    (0b0000000000000000 << 48)
+        | (0b0000100000000000 << 32)
+        | (0b0001110000000000 << 16)
+        | (0b0000100000000000 << 0),
+    (0b0000000000000000 << 48)
+        | (0b0000010000000000 << 32)
+        | (0b0000010000000000 << 16)
+        | (0b0001110000000000 << 0),
+    (0b0001000000000000 << 48)
+        | (0b0001000000000000 << 32)
+        | (0b0001000000000000 << 16)
+        | (0b0001000000000000 << 0),
+    (0b0000000000000000 << 48)
+        | (0b0000000000000000 << 32)
+        | (0b0001100000000000 << 16)
+        | (0b0001100000000000 << 0),
 ];
+
+const ROCK_HEIGHTS: [usize; ROCKS.len()] = [1, 3, 3, 4, 2];
 
 impl FromStr for Puzzle {
     type Err = Oops;
@@ -106,9 +96,9 @@ impl BitGrid {
             used: 10,
             data: [0; GRID_ROWS],
         };
-        grid.data[0] = 0xffffffff;
+        grid.data[0] = 0x0000ffff;
         for i in 1..GRID_ROWS {
-            grid.data[i] = 0x80ffffff;
+            grid.data[i] = 0x000080ff;
         }
         grid
     }
@@ -121,7 +111,7 @@ impl BitGrid {
             let old_base = self.base;
             let new_base = self.base + capacity_to_free;
             for i in old_base..new_base {
-                self.data[i % GRID_ROWS] = 0x80ffffff;
+                self.data[i % GRID_ROWS] = 0x000080ff;
             }
             self.base = new_base % GRID_ROWS;
             self.used -= capacity_to_free;
@@ -142,7 +132,7 @@ impl BitGrid {
             let data = self.data[i % GRID_ROWS];
             println!(
                 "{}",
-                (23..32)
+                (7..16)
                     .rev()
                     .map(|pos| if data & (1 << pos) != 0 { '#' } else { '.' })
                     .collect::<String>()
@@ -151,48 +141,47 @@ impl BitGrid {
     }
 }
 
-fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [Row; 4]) {
-    if (current_rock[0] << 1) & chamber.row(rock_bottom) == 0
-        && (current_rock[1] << 1) & chamber.row(rock_bottom + 1) == 0
-        && (current_rock[2] << 1) & chamber.row(rock_bottom + 2) == 0
-        && (current_rock[3] << 1) & chamber.row(rock_bottom + 3) == 0
-    {
-        current_rock[0] <<= 1;
-        current_rock[1] <<= 1;
-        current_rock[2] <<= 1;
-        current_rock[3] <<= 1;
+fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u64) -> u64 {
+    let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
+        | ((chamber.row(rock_bottom + 1) as u64) << 16)
+        | ((chamber.row(rock_bottom + 2) as u64) << 32)
+        | ((chamber.row(rock_bottom + 3) as u64) << 48);
+    if (current_rock << 1) & chamber_rows == 0 {
+        current_rock << 1
+    } else {
+        current_rock
     }
 }
 
-fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: &mut [Row; 4]) {
-    if (current_rock[0] >> 1) & chamber.row(rock_bottom) == 0
-        && (current_rock[1] >> 1) & chamber.row(rock_bottom + 1) == 0
-        && (current_rock[2] >> 1) & chamber.row(rock_bottom + 2) == 0
-        && (current_rock[3] >> 1) & chamber.row(rock_bottom + 3) == 0
-    {
-        current_rock[0] >>= 1;
-        current_rock[1] >>= 1;
-        current_rock[2] >>= 1;
-        current_rock[3] >>= 1;
+fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u64) -> u64 {
+    let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
+        | ((chamber.row(rock_bottom + 1) as u64) << 16)
+        | ((chamber.row(rock_bottom + 2) as u64) << 32)
+        | ((chamber.row(rock_bottom + 3) as u64) << 48);
+    if (current_rock >> 1) & chamber_rows == 0 {
+        current_rock >> 1
+    } else {
+        current_rock
     }
 }
 
 fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
-    let mut rocks = ROCKS.iter().copied().cycle();
     let mut jets = puzzle.jets.iter().cycle();
 
     let mut state = State::NewRock;
     let mut chamber = BitGrid::new();
 
     let mut rock_count = 0;
-    let mut current_rock = rocks.next().unwrap();
+    let mut current_rock = ROCKS[0];
+    let mut current_rock_height = 0;
     // Represents the bottom of the current rock.
     let mut topmost_rock = 0;
     let mut rock_bottom = 1;
     while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
-                current_rock = rocks.next().unwrap();
+                current_rock = ROCKS[rock_count % ROCKS.len()];
+                current_rock_height = ROCK_HEIGHTS[rock_count % ROCKS.len()];
                 rock_bottom = topmost_rock + 1;
                 // Normally, rocks start at chamber.top + 4. However, it is guaranteed that each
                 // rock can shift 4x and fall 3x without hitting anything (other than the side
@@ -201,10 +190,12 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 for _ in 0..4 {
                     match jets.next().unwrap() {
                         Jet::Left => {
-                            move_left_if_possible(&chamber, rock_bottom, &mut current_rock)
+                            current_rock =
+                                move_left_if_possible(&chamber, rock_bottom, current_rock)
                         }
                         Jet::Right => {
-                            move_right_if_possible(&chamber, rock_bottom, &mut current_rock)
+                            current_rock =
+                                move_right_if_possible(&chamber, rock_bottom, current_rock)
                         }
                     };
                 }
@@ -213,14 +204,15 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 if rock_count % 100_000_000 == 0 {
                     println!("count: {}", rock_count);
                 }
+                if rock_count < 15 {
+                    // chamber.render();
+                }
                 continue;
             }
             State::FallJet => {
-                if current_rock[0] & chamber.row(rock_bottom - 1) != 0
-                    || current_rock[1] & chamber.row(rock_bottom) != 0
+                if ((current_rock & 0xffff) as Row) & chamber.row(rock_bottom - 1) != 0
+                    || ((current_rock >> 16 & 0xffff) as Row) & chamber.row(rock_bottom) != 0
                 {
-                    let current_rock_height = current_rock.iter().filter(|&&x| x != 0).count();
-
                     // rock_bottom is where rocks spawn, which is one above the actual topmost
                     // rock.
                     let possible_new_top = rock_bottom + current_rock_height - 1;
@@ -229,17 +221,21 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                         topmost_rock = possible_new_top;
                     }
 
-                    *chamber.mut_row(rock_bottom) |= current_rock[0];
-                    *chamber.mut_row(rock_bottom + 1) |= current_rock[1];
-                    *chamber.mut_row(rock_bottom + 2) |= current_rock[2];
-                    *chamber.mut_row(rock_bottom + 3) |= current_rock[3];
+                    *chamber.mut_row(rock_bottom) |= (current_rock & 0xffff) as Row;
+                    *chamber.mut_row(rock_bottom + 1) |= (current_rock >> 16 & 0xffff) as Row;
+                    *chamber.mut_row(rock_bottom + 2) |= (current_rock >> 32 & 0xffff) as Row;
+                    *chamber.mut_row(rock_bottom + 3) |= (current_rock >> 48 & 0xffff) as Row;
                     state = State::NewRock;
                     continue;
                 }
                 rock_bottom -= 1;
                 match jets.next().unwrap() {
-                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, &mut current_rock),
-                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, &mut current_rock),
+                    Jet::Left => {
+                        current_rock = move_left_if_possible(&chamber, rock_bottom, current_rock)
+                    }
+                    Jet::Right => {
+                        current_rock = move_right_if_possible(&chamber, rock_bottom, current_rock)
+                    }
                 };
                 continue;
             }
@@ -253,7 +249,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    // return run_simulation::<1_000_000_000>(puzzle);
+    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
