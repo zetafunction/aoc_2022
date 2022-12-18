@@ -188,7 +188,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 // walls), so the falls can be unconditionally simulated, while a lookup table can
                 // be used for the side walls.
                 for _ in 0..4 {
-                    match jets.next().unwrap() {
+                    match unsafe { jets.next().unwrap_unchecked() } {
                         Jet::Left => {
                             current_rock =
                                 move_left_if_possible(&chamber, rock_bottom, current_rock)
@@ -229,7 +229,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                     continue;
                 }
                 rock_bottom -= 1;
-                match jets.next().unwrap() {
+                match unsafe { jets.next().unwrap_unchecked() } {
                     Jet::Left => {
                         current_rock = move_left_if_possible(&chamber, rock_bottom, current_rock)
                     }
@@ -249,7 +249,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    return run_simulation::<1_000_000_000>(puzzle);
+    // return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
