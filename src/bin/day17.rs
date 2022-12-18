@@ -210,6 +210,7 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
 }
 
 fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
+    let mut rock_heights = ROCK_HEIGHTS.iter().cycle();
     let mut jets = puzzle.jets.iter().cycle();
 
     let mut state = State::NewRock;
@@ -238,7 +239,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                         *j4,
                     ));
                 }
-                current_rock_height = ROCK_HEIGHTS[rock_count % ROCKS.len()];
+                current_rock_height = unsafe { *rock_heights.next().unwrap_unchecked() };
                 rock_bottom = topmost_rock + 1;
                 // Normally, rocks start at topmost_rock + 4. However, it is guaranteed that each
                 // rock can shift 4x and fall 3x without hitting anything (other than the side
