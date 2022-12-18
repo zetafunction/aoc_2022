@@ -18,9 +18,10 @@ use std::str::FromStr;
 
 type Row = u32;
 
+#[derive(Clone, Copy)]
 enum Jet {
-    Left,
-    Right,
+    Left = 0,
+    Right = 1,
 }
 
 struct Puzzle {
@@ -165,12 +166,56 @@ fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u
     }
 }
 
+fn rock_and_jets_to_index(rock_count: usize, jet1: Jet, jet2: Jet, jet3: Jet, jet4: Jet) -> usize {
+    (rock_count << 4)
+        | ((jet1 as usize) << 3)
+        | ((jet2 as usize) << 2)
+        | ((jet3 as usize) << 1)
+        | (jet4 as usize)
+}
+
+// Entries are indexed by `rock_and_jets_to_index()`.
+fn build_new_rock_lookup_table() -> Vec<u64> {
+    let mut table = vec![0; ROCKS.len() * 16];
+    let grid = BitGrid::new();
+    for i in 0..ROCKS.len() {
+        for j1 in &[Jet::Left, Jet::Right] {
+            for j2 in &[Jet::Left, Jet::Right] {
+                for j3 in &[Jet::Left, Jet::Right] {
+                    for j4 in &[Jet::Left, Jet::Right] {
+                        let rock = ROCKS[i];
+                        let rock = match j1 {
+                            Jet::Left => move_left_if_possible(&grid, 8, rock),
+                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                        };
+                        let rock = match j2 {
+                            Jet::Left => move_left_if_possible(&grid, 8, rock),
+                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                        };
+                        let rock = match j3 {
+                            Jet::Left => move_left_if_possible(&grid, 8, rock),
+                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                        };
+                        let rock = match j4 {
+                            Jet::Left => move_left_if_possible(&grid, 8, rock),
+                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                        };
+                        table[rock_and_jets_to_index(i, *j1, *j2, *j3, *j4)] = rock;
+                    }
+                }
+            }
+        }
+    }
+    table
+}
+
 fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     let mut jets = puzzle.jets.iter().cycle();
 
     let mut state = State::NewRock;
     let mut chamber = BitGrid::new();
 
+    let rock_table = build_new_rock_lookup_table();
     let mut rock_count = 0;
     let mut current_rock = ROCKS[0];
     let mut current_rock_height = 0;
@@ -180,25 +225,25 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
-                current_rock = ROCKS[rock_count % ROCKS.len()];
+                unsafe {
+                    let j1 = jets.next().unwrap_unchecked();
+                    let j2 = jets.next().unwrap_unchecked();
+                    let j3 = jets.next().unwrap_unchecked();
+                    let j4 = jets.next().unwrap_unchecked();
+                    current_rock = *rock_table.get_unchecked(rock_and_jets_to_index(
+                        rock_count % ROCKS.len(),
+                        *j1,
+                        *j2,
+                        *j3,
+                        *j4,
+                    ));
+                }
                 current_rock_height = ROCK_HEIGHTS[rock_count % ROCKS.len()];
                 rock_bottom = topmost_rock + 1;
-                // Normally, rocks start at chamber.top + 4. However, it is guaranteed that each
+                // Normally, rocks start at topmost_rock + 4. However, it is guaranteed that each
                 // rock can shift 4x and fall 3x without hitting anything (other than the side
                 // walls), so the falls can be unconditionally simulated, while a lookup table can
                 // be used for the side walls.
-                for _ in 0..4 {
-                    match unsafe { jets.next().unwrap_unchecked() } {
-                        Jet::Left => {
-                            current_rock =
-                                move_left_if_possible(&chamber, rock_bottom, current_rock)
-                        }
-                        Jet::Right => {
-                            current_rock =
-                                move_right_if_possible(&chamber, rock_bottom, current_rock)
-                        }
-                    };
-                }
                 state = State::FallJet;
                 rock_count += 1;
                 if rock_count % 100_000_000 == 0 {
@@ -229,13 +274,9 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                     continue;
                 }
                 rock_bottom -= 1;
-                match unsafe { jets.next().unwrap_unchecked() } {
-                    Jet::Left => {
-                        current_rock = move_left_if_possible(&chamber, rock_bottom, current_rock)
-                    }
-                    Jet::Right => {
-                        current_rock = move_right_if_possible(&chamber, rock_bottom, current_rock)
-                    }
+                current_rock = match unsafe { jets.next().unwrap_unchecked() } {
+                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, current_rock),
+                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, current_rock),
                 };
                 continue;
             }
