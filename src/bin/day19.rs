@@ -167,7 +167,9 @@ struct Blueprint {
     obsidian_robot_clay_cost: i32,
     geode_robot_ore_cost: i32,
     geode_robot_obsidian_cost: i32,
-    construct_ore_robot_cycle: i32,
+    max_ore_cost: i32,
+    max_clay_cost: i32,
+    max_obsidian_cost: i32,
 }
 
 impl Blueprint {
@@ -194,10 +196,8 @@ impl Blueprint {
             }
         }
 
-        let mut could_build_geode_or_obsidian = false;
         let mut best = resources.geode;
         if let Some(resources) = resources.maybe_build_geode_robot(self) {
-            could_build_geode_or_obsidian = true;
             let new_resources = resources.collect(&robots);
             let result = self.solve_for_max_geodes(
                 new_resources,
@@ -207,7 +207,8 @@ impl Blueprint {
                 true,
             );
             best = std::cmp::max(best, result);
-        } else {
+        }
+        if robots.ore < self.max_ore_cost {
             if let Some(resources) = resources.maybe_build_ore_robot(self) {
                 // println!("building ore robot at {}", time_left);
                 let new_resources = resources.collect(&robots);
@@ -220,52 +221,45 @@ impl Blueprint {
                 );
                 best = std::cmp::max(best, result);
             }
-            if (robots.clay as f32 / robots.ore as f32)
-                < (self.obsidian_robot_clay_cost as f32 / self.obsidian_robot_ore_cost as f32)
-            {
-                if let Some(resources) = resources.maybe_build_clay_robot(self) {
-                    // println!("building clay robot at {}", time_left);
-                    let new_resources = resources.collect(&robots);
-                    let result = self.solve_for_max_geodes(
-                        new_resources,
-                        robots.add_clay(),
-                        time_left - 1,
-                        seen,
-                        true,
-                    );
-                    best = std::cmp::max(best, result);
-                }
-            }
-            if (robots.obsidian as f32 / robots.ore as f32)
-                < (self.geode_robot_obsidian_cost as f32 / self.geode_robot_ore_cost as f32)
-            {
-                if let Some(resources) = resources.maybe_build_obsidian_robot(self) {
-                    could_build_geode_or_obsidian = true;
-                    let new_resources = resources.collect(&robots);
-                    let result = self.solve_for_max_geodes(
-                        new_resources,
-                        robots.add_obsidian(),
-                        time_left - 1,
-                        seen,
-                        true,
-                    );
-                    best = std::cmp::max(best, result);
-                }
-            }
         }
-        if !could_build_geode_or_obsidian {
-            best = std::cmp::max(
-                best,
-                self.solve_for_max_geodes(
-                    resources.collect(&robots),
-                    robots,
+        if robots.clay < self.max_clay_cost {
+            if let Some(resources) = resources.maybe_build_clay_robot(self) {
+                // println!("building clay robot at {}", time_left);
+                let new_resources = resources.collect(&robots);
+                let result = self.solve_for_max_geodes(
+                    new_resources,
+                    robots.add_clay(),
                     time_left - 1,
                     seen,
-                    false,
-                ),
-            );
+                    true,
+                );
+                best = std::cmp::max(best, result);
+            }
         }
-        return best;
+        if robots.obsidian < self.max_obsidian_cost {
+            if let Some(resources) = resources.maybe_build_obsidian_robot(self) {
+                let new_resources = resources.collect(&robots);
+                let result = self.solve_for_max_geodes(
+                    new_resources,
+                    robots.add_obsidian(),
+                    time_left - 1,
+                    seen,
+                    true,
+                );
+                best = std::cmp::max(best, result);
+            }
+        }
+        best = std::cmp::max(
+            best,
+            self.solve_for_max_geodes(
+                resources.collect(&robots),
+                robots,
+                time_left - 1,
+                seen,
+                false,
+            ),
+        );
+        best
     }
 }
 
@@ -280,13 +274,18 @@ impl FromStr for Blueprint {
         let obsidian_robot_clay_cost = words[21].parse()?;
         let geode_robot_ore_cost = words[27].parse()?;
         let geode_robot_obsidian_cost = words[30].parse()?;
-        let construct_ore_robot_cycle = std::cmp::max(
-            std::cmp::min(
-                (geode_robot_obsidian_cost as f32 / geode_robot_ore_cost as f32).floor() as i32,
-                (obsidian_robot_clay_cost as f32 / obsidian_robot_ore_cost as f32).floor() as i32,
-            ) - 1,
-            1,
-        );
+        let max_ore_cost = [
+            ore_robot_ore_cost,
+            clay_robot_ore_cost,
+            obsidian_robot_ore_cost,
+            geode_robot_ore_cost,
+        ]
+        .iter()
+        .max()
+        .copied()
+        .unwrap();
+        let max_clay_cost = obsidian_robot_clay_cost;
+        let max_obsidian_cost = geode_robot_obsidian_cost;
         Ok(Blueprint {
             ore_robot_ore_cost,
             clay_robot_ore_cost,
@@ -294,7 +293,9 @@ impl FromStr for Blueprint {
             obsidian_robot_clay_cost,
             geode_robot_ore_cost,
             geode_robot_obsidian_cost,
-            construct_ore_robot_cycle,
+            max_ore_cost,
+            max_clay_cost,
+            max_obsidian_cost,
         })
     }
 }
