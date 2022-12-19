@@ -189,7 +189,9 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
                 for j3 in &[Jet::Left, Jet::Right] {
                     for j4 in &[Jet::Left, Jet::Right] {
                         let mut rock = ROCKS[i];
-                        for j in [j1, j2, j3, j4] {
+                        // For some inexplicable reason, iterating over &[] instead of [] affects overall
+                        // throughput...
+                        for j in &[j1, j2, j3, j4] {
                             rock = match j {
                                 Jet::Left => chamber.maybe_move_left(8, rock),
                                 Jet::Right => chamber.maybe_move_right(8, rock),
