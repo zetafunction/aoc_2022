@@ -16,7 +16,7 @@ use aoc_2022::{oops, oops::Oops};
 use std::io::{self, Read};
 use std::str::FromStr;
 
-type Row = u32;
+type Row = u16;
 
 #[derive(Clone, Copy)]
 enum Jet {
@@ -98,9 +98,9 @@ impl Chamber {
             used: 10,
             data: [0; GRID_ROWS],
         };
-        chamber.data[0] = 0x0000ffff;
+        chamber.data[0] = 0xffff;
         for i in 1..GRID_ROWS {
-            chamber.data[i] = 0x000080ff;
+            chamber.data[i] = 0x80ff;
         }
         chamber
     }
@@ -113,7 +113,7 @@ impl Chamber {
             let old_base = self.base;
             let new_base = self.base + capacity_to_free;
             for i in old_base..new_base {
-                self.data[i % GRID_ROWS] = 0x000080ff;
+                self.data[i % GRID_ROWS] = 0x80ff;
             }
             self.base = new_base % GRID_ROWS;
             self.used -= capacity_to_free;
@@ -260,6 +260,8 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 if rock_count < 15 {
                     // chamber.render();
                 }
+                // The new rock always spawns immediately above any non-wall collisions, so the
+                // only bits that are set will be for walls.
                 chamber_rows = 0x80ff80ff80ff80ff;
                 continue;
             }
