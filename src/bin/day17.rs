@@ -83,6 +83,7 @@ enum State {
     FallJet,
 }
 
+// Empirically, smaller sizes seem to produce less throughput.
 const GRID_ROWS: usize = 1024;
 
 struct Chamber {
@@ -154,6 +155,7 @@ impl Chamber {
         &mut self.data[n % GRID_ROWS]
     }
 
+    #[allow(dead_code)]
     fn render(&self) {
         println!("drawing from {} to {}", self.base, self.base + self.used);
         for i in (self.base..=self.base + self.used).rev() {
@@ -187,6 +189,8 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
                 for j3 in &[Jet::Left, Jet::Right] {
                     for j4 in &[Jet::Left, Jet::Right] {
                         let rock = ROCKS[i];
+                        // TODO: Figure out why simplifying the body of the inner loop here
+                        // adversely affects performance of the main simulation loop...
                         let rock = match j1 {
                             Jet::Left => chamber.maybe_move_left(8, rock),
                             Jet::Right => chamber.maybe_move_right(8, rock),
@@ -304,7 +308,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    return run_simulation::<1_000_000_000>(puzzle);
+    // return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
