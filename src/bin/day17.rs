@@ -254,7 +254,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 state = State::FallJet;
                 rock_count += 1;
                 if rock_count % 100_000_000 == 0 {
-                    println!("count: {}", rock_count);
+                    // println!("count: {}", rock_count);
                 }
                 if rock_count < 15 {
                     // chamber.render();
