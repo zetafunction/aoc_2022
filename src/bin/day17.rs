@@ -188,25 +188,13 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
             for j2 in &[Jet::Left, Jet::Right] {
                 for j3 in &[Jet::Left, Jet::Right] {
                     for j4 in &[Jet::Left, Jet::Right] {
-                        let rock = ROCKS[i];
-                        // TODO: Figure out why simplifying the body of the inner loop here
-                        // adversely affects performance of the main simulation loop...
-                        let rock = match j1 {
-                            Jet::Left => chamber.maybe_move_left(8, rock),
-                            Jet::Right => chamber.maybe_move_right(8, rock),
-                        };
-                        let rock = match j2 {
-                            Jet::Left => chamber.maybe_move_left(8, rock),
-                            Jet::Right => chamber.maybe_move_right(8, rock),
-                        };
-                        let rock = match j3 {
-                            Jet::Left => chamber.maybe_move_left(8, rock),
-                            Jet::Right => chamber.maybe_move_right(8, rock),
-                        };
-                        let rock = match j4 {
-                            Jet::Left => chamber.maybe_move_left(8, rock),
-                            Jet::Right => chamber.maybe_move_right(8, rock),
-                        };
+                        let mut rock = ROCKS[i];
+                        for j in [j1, j2, j3, j4] {
+                            rock = match j {
+                                Jet::Left => chamber.maybe_move_left(8, rock),
+                                Jet::Right => chamber.maybe_move_right(8, rock),
+                            };
+                        }
                         table[rock_and_jets_to_index(i, *j1, *j2, *j3, *j4)] = rock;
                     }
                 }
@@ -308,7 +296,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    // return run_simulation::<1_000_000_000>(puzzle);
+    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
