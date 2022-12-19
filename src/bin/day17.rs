@@ -120,11 +120,37 @@ impl Chamber {
         }
     }
 
+    #[inline(always)]
+    fn maybe_move_left(&self, rock_bottom: usize, current_rock: u64) -> u64 {
+        let rows = ((self.row(rock_bottom) as u64) << 0)
+            | ((self.row(rock_bottom + 1) as u64) << 16)
+            | ((self.row(rock_bottom + 2) as u64) << 32)
+            | ((self.row(rock_bottom + 3) as u64) << 48);
+        if (current_rock << 1) & rows == 0 {
+            current_rock << 1
+        } else {
+            current_rock
+        }
+    }
+
+    #[inline(always)]
+    fn maybe_move_right(&self, rock_bottom: usize, current_rock: u64) -> u64 {
+        let rows = ((self.row(rock_bottom) as u64) << 0)
+            | ((self.row(rock_bottom + 1) as u64) << 16)
+            | ((self.row(rock_bottom + 2) as u64) << 32)
+            | ((self.row(rock_bottom + 3) as u64) << 48);
+        if (current_rock >> 1) & rows == 0 {
+            current_rock >> 1
+        } else {
+            current_rock
+        }
+    }
+
     fn row(&self, n: usize) -> Row {
         self.data[n % GRID_ROWS]
     }
 
-    fn mut_row(&mut self, n: usize) -> &mut Row {
+    fn row_mut(&mut self, n: usize) -> &mut Row {
         &mut self.data[n % GRID_ROWS]
     }
 
@@ -140,32 +166,6 @@ impl Chamber {
                     .collect::<String>()
             );
         }
-    }
-}
-
-#[inline(always)]
-fn move_left_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
-    let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
-        | ((chamber.row(rock_bottom + 1) as u64) << 16)
-        | ((chamber.row(rock_bottom + 2) as u64) << 32)
-        | ((chamber.row(rock_bottom + 3) as u64) << 48);
-    if (current_rock << 1) & chamber_rows == 0 {
-        current_rock << 1
-    } else {
-        current_rock
-    }
-}
-
-#[inline(always)]
-fn move_right_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
-    let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
-        | ((chamber.row(rock_bottom + 1) as u64) << 16)
-        | ((chamber.row(rock_bottom + 2) as u64) << 32)
-        | ((chamber.row(rock_bottom + 3) as u64) << 48);
-    if (current_rock >> 1) & chamber_rows == 0 {
-        current_rock >> 1
-    } else {
-        current_rock
     }
 }
 
@@ -188,20 +188,20 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
                     for j4 in &[Jet::Left, Jet::Right] {
                         let rock = ROCKS[i];
                         let rock = match j1 {
-                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
-                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
+                            Jet::Left => chamber.maybe_move_left(8, rock),
+                            Jet::Right => chamber.maybe_move_right(8, rock),
                         };
                         let rock = match j2 {
-                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
-                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
+                            Jet::Left => chamber.maybe_move_left(8, rock),
+                            Jet::Right => chamber.maybe_move_right(8, rock),
                         };
                         let rock = match j3 {
-                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
-                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
+                            Jet::Left => chamber.maybe_move_left(8, rock),
+                            Jet::Right => chamber.maybe_move_right(8, rock),
                         };
                         let rock = match j4 {
-                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
-                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
+                            Jet::Left => chamber.maybe_move_left(8, rock),
+                            Jet::Right => chamber.maybe_move_right(8, rock),
                         };
                         table[rock_and_jets_to_index(i, *j1, *j2, *j3, *j4)] = rock;
                     }
@@ -273,18 +273,18 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                         topmost_rock = possible_new_top;
                     }
 
-                    *chamber.mut_row(rock_bottom) |= (current_rock & 0xffff) as Row;
-                    *chamber.mut_row(rock_bottom + 1) |= (current_rock >> 16 & 0xffff) as Row;
-                    *chamber.mut_row(rock_bottom + 2) |= (current_rock >> 32 & 0xffff) as Row;
-                    *chamber.mut_row(rock_bottom + 3) |= (current_rock >> 48 & 0xffff) as Row;
+                    *chamber.row_mut(rock_bottom) |= (current_rock & 0xffff) as Row;
+                    *chamber.row_mut(rock_bottom + 1) |= (current_rock >> 16 & 0xffff) as Row;
+                    *chamber.row_mut(rock_bottom + 2) |= (current_rock >> 32 & 0xffff) as Row;
+                    *chamber.row_mut(rock_bottom + 3) |= (current_rock >> 48 & 0xffff) as Row;
                     state = State::NewRock;
                     continue;
                 }
                 rock_bottom -= 1;
                 // jets is a cycled iterator that will never return None.
                 current_rock = match unsafe { jets.next().unwrap_unchecked() } {
-                    Jet::Left => move_left_if_possible(&chamber, rock_bottom, current_rock),
-                    Jet::Right => move_right_if_possible(&chamber, rock_bottom, current_rock),
+                    Jet::Left => chamber.maybe_move_left(rock_bottom, current_rock),
+                    Jet::Right => chamber.maybe_move_right(rock_bottom, current_rock),
                 };
                 continue;
             }
