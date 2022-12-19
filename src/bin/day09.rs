@@ -12,16 +12,16 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+use aoc_2022::geometry::{Point2, Vector2};
 use aoc_2022::{oops, oops::Oops};
 use std::collections::HashSet;
 use std::io::{self, Read};
-use std::ops::{Add, AddAssign, Sub};
 use std::str::FromStr;
 
 #[derive(Debug)]
 enum Move {
-    Horizontal(isize),
-    Vertical(isize),
+    Horizontal(i32),
+    Vertical(i32),
 }
 
 impl FromStr for Move {
@@ -32,7 +32,7 @@ impl FromStr for Move {
         if parts.len() != 2 {
             return Err(oops!("wrong size inputs"));
         }
-        let distance: isize = parts[1].parse()?;
+        let distance: i32 = parts[1].parse()?;
         match parts[0] {
             "U" => Ok(Move::Vertical(distance)),
             "R" => Ok(Move::Horizontal(distance)),
@@ -64,55 +64,24 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-struct Point(isize, isize);
-
-#[derive(Clone, Copy)]
-struct Delta(isize, isize);
-
-impl Delta {
-    fn signum(&self) -> Delta {
-        Delta(self.0.signum(), self.1.signum())
-    }
-}
-
-impl Add<Delta> for Point {
-    type Output = Point;
-    fn add(self, dir: Delta) -> Self::Output {
-        Point(self.0 + dir.0, self.1 + dir.1)
-    }
-}
-
-impl AddAssign<Delta> for Point {
-    fn add_assign(&mut self, dir: Delta) {
-        self.0 += dir.0;
-        self.1 += dir.1;
-    }
-}
-
-impl Sub for Point {
-    type Output = Delta;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Delta(self.0 - rhs.0, self.1 - rhs.1)
-    }
-}
-
-fn update_position(head: &Point, tail: &Point) -> Point {
+fn update_position(head: &Point2, tail: &Point2) -> Point2 {
     let delta = *head - *tail;
-    if delta.0.abs() > 1 || delta.1.abs() > 1 {
-        *tail + delta.signum()
+    if delta.x.abs() > 1 || delta.y.abs() > 1 {
+        *tail + Vector2::new(delta.x.signum(), delta.y.signum())
     } else {
         *tail
     }
 }
 
 fn solve_puzzle(puzzle: &Puzzle, knot_count: usize) -> usize {
-    let mut knots: Vec<_> = std::iter::repeat(Point(0, 0)).take(knot_count).collect();
+    let mut knots: Vec<_> = std::iter::repeat(Point2::new(0, 0))
+        .take(knot_count)
+        .collect();
     let mut visited = HashSet::new();
     for m in &puzzle.moves {
         let (delta, count) = match m {
-            Move::Horizontal(x) => (Delta(x.signum(), 0), x.abs()),
-            Move::Vertical(y) => (Delta(0, y.signum()), y.abs()),
+            Move::Horizontal(x) => (Vector2::new(x.signum(), 0), x.abs()),
+            Move::Vertical(y) => (Vector2::new(0, y.signum()), y.abs()),
         };
         for _ in 0..count {
             knots[0] += delta;

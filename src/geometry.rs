@@ -13,21 +13,66 @@
 //  limitations under the License.
 
 use std::borrow::Borrow;
-use std::ops::Add;
+use std::ops::{Add, AddAssign, Sub};
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Point2 {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Point2 {
+    pub fn new(x: i32, y: i32) -> Self {
+        Point2 { x, y }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Vector2 {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Vector2 {
+    pub fn new(x: i32, y: i32) -> Self {
+        Vector2 { x, y }
+    }
+}
+
+impl Add<Vector2> for Point2 {
+    type Output = Point2;
+    fn add(self, rhs: Vector2) -> Self::Output {
+        Point2::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl AddAssign<Vector2> for Point2 {
+    fn add_assign(&mut self, rhs: Vector2) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Sub for Point2 {
+    type Output = Vector2;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Vector2::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Point3 {
-    x: i32,
-    y: i32,
-    z: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
 }
 
-pub struct Neighbors<'a> {
+pub struct Neighbors3<'a> {
     p: &'a Point3,
     iter: std::slice::Iter<'static, Vector3>,
 }
 
-impl<'a> Iterator for Neighbors<'a> {
+impl<'a> Iterator for Neighbors3<'a> {
     type Item = Point3;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -44,7 +89,7 @@ impl Point3 {
         Point3 { x, y, z }
     }
 
-    pub fn neighbors(&self) -> Neighbors {
+    pub fn neighbors(&self) -> Neighbors3 {
         const NEIGHBOR_VECTORS: &[Vector3] = &[
             Vector3::new(-1, 0, 0),
             Vector3::new(1, 0, 0),
@@ -54,7 +99,7 @@ impl Point3 {
             Vector3::new(0, 0, 1),
         ];
 
-        Neighbors {
+        Neighbors3 {
             p: self,
             iter: NEIGHBOR_VECTORS.iter(),
         }
