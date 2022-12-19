@@ -13,9 +13,11 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
+use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
+#[derive(Debug)]
 struct Blueprint {
     ore_robot_ore_cost: i32,
     clay_robot_ore_cost: i32,
@@ -25,7 +27,7 @@ struct Blueprint {
     geode_robot_obsidian_cost: i32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Resources {
     ore: i32,
     clay: i32,
@@ -96,18 +98,67 @@ impl Resources {
         }
     }
 
-    fn collect(
-        &self,
-        ore_robots: i32,
-        clay_robots: i32,
-        obsidian_robots: i32,
-        geode_robots: i32,
-    ) -> Resources {
+    fn collect(&self, robots: &Robots) -> Resources {
         Resources {
-            ore: self.ore + ore_robots,
-            clay: self.clay + clay_robots,
-            obsidian: self.obsidian + obsidian_robots,
-            geode: self.geode + geode_robots,
+            ore: self.ore + robots.ore,
+            clay: self.clay + robots.clay,
+            obsidian: self.obsidian + robots.obsidian,
+            geode: self.geode + robots.geode,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+struct Robots {
+    ore: i32,
+    clay: i32,
+    obsidian: i32,
+    geode: i32,
+}
+
+impl Robots {
+    fn new() -> Self {
+        Robots {
+            ore: 1,
+            clay: 0,
+            obsidian: 0,
+            geode: 0,
+        }
+    }
+
+    fn add_ore(&self) -> Self {
+        Robots {
+            ore: self.ore + 1,
+            clay: self.clay,
+            obsidian: self.obsidian,
+            geode: self.geode,
+        }
+    }
+
+    fn add_clay(&self) -> Self {
+        Robots {
+            ore: self.ore,
+            clay: self.clay + 1,
+            obsidian: self.obsidian,
+            geode: self.geode,
+        }
+    }
+
+    fn add_obsidian(&self) -> Self {
+        Robots {
+            ore: self.ore,
+            clay: self.clay,
+            obsidian: self.obsidian + 1,
+            geode: self.geode,
+        }
+    }
+
+    fn add_geode(&self) -> Self {
+        Robots {
+            ore: self.ore,
+            clay: self.clay,
+            obsidian: self.obsidian,
+            geode: self.geode + 1,
         }
     }
 }
@@ -116,78 +167,93 @@ impl Blueprint {
     fn solve_for_max_geodes(
         &self,
         resources: Resources,
-        ore_robots: i32,
-        clay_robots: i32,
-        obsidian_robots: i32,
-        geode_robots: i32,
+        robots: Robots,
         time_left: i32,
+        best_resources: &mut HashMap<Resources, i32>,
+        best_robots: &mut HashMap<Robots, i32>,
     ) -> i32 {
+        /*
+        println!(
+            "o: {} c: {} ob: {} g: {} t: {}",
+            ore_robots, clay_robots, obsidian_robots, geode_robots, time_left
+        );
+        println!("Res: {:?}", resources);
+        */
         if time_left == 0 {
-            return resources.geode;
+            return resources.geode + robots.geode;
+        }
+
+        if let Some(&best) = best_resources.get(&resources) {
+            if best > time_left {
+                println!("pruned?");
+                return 0;
+            }
+            best_resources.insert(resources, time_left);
+        }
+
+        if let Some(&best) = best_robots.get(&robots) {
+            if best > time_left {
+                println!("pruned?");
+                return 0;
+            }
+            best_robots.insert(robots, time_left);
         }
 
         let mut best = resources.geode;
         if let Some(resources) = resources.maybe_build_ore_robot(self) {
-            let new_resources =
-                resources.collect(ore_robots, clay_robots, obsidian_robots, geode_robots);
+            // println!("building ore robot at {}", time_left);
+            let new_resources = resources.collect(&robots);
             let result = self.solve_for_max_geodes(
                 new_resources,
-                ore_robots + 1,
-                clay_robots,
-                obsidian_robots,
-                geode_robots,
+                robots.add_ore(),
                 time_left - 1,
+                best_resources,
+                best_robots,
             );
             best = std::cmp::max(best, result);
         }
         if let Some(resources) = resources.maybe_build_clay_robot(self) {
-            let new_resources =
-                resources.collect(ore_robots, clay_robots, obsidian_robots, geode_robots);
+            // println!("building clay robot at {}", time_left);
+            let new_resources = resources.collect(&robots);
             let result = self.solve_for_max_geodes(
                 new_resources,
-                ore_robots,
-                clay_robots + 1,
-                obsidian_robots,
-                geode_robots,
+                robots.add_clay(),
                 time_left - 1,
+                best_resources,
+                best_robots,
             );
             best = std::cmp::max(best, result);
         }
         if let Some(resources) = resources.maybe_build_obsidian_robot(self) {
-            let new_resources =
-                resources.collect(ore_robots, clay_robots, obsidian_robots, geode_robots);
+            let new_resources = resources.collect(&robots);
             let result = self.solve_for_max_geodes(
                 new_resources,
-                ore_robots,
-                clay_robots,
-                obsidian_robots + 1,
-                geode_robots,
+                robots.add_obsidian(),
                 time_left - 1,
+                best_resources,
+                best_robots,
             );
             best = std::cmp::max(best, result);
         }
         if let Some(resources) = resources.maybe_build_geode_robot(self) {
-            let new_resources =
-                resources.collect(ore_robots, clay_robots, obsidian_robots, geode_robots);
+            let new_resources = resources.collect(&robots);
             let result = self.solve_for_max_geodes(
                 new_resources,
-                ore_robots,
-                clay_robots,
-                obsidian_robots,
-                geode_robots + 1,
+                robots.add_geode(),
                 time_left - 1,
+                best_resources,
+                best_robots,
             );
             best = std::cmp::max(best, result);
         }
         best = std::cmp::max(
             best,
             self.solve_for_max_geodes(
-                resources.collect(ore_robots, clay_robots, obsidian_robots, geode_robots),
-                ore_robots,
-                clay_robots,
-                obsidian_robots,
-                geode_robots,
+                resources.collect(&robots),
+                robots,
                 time_left - 1,
+                best_resources,
+                best_robots,
             ),
         );
         return best;
@@ -237,8 +303,17 @@ fn part1(puzzle: &Puzzle) -> Result<i32, Oops> {
         .iter()
         .enumerate()
         .map(|(i, blueprint)| {
-            i as i32 * blueprint.solve_for_max_geodes(Resources::new(), 1, 0, 0, 0, 24)
+            println!("{:?}", blueprint);
+            i as i32
+                * blueprint.solve_for_max_geodes(
+                    Resources::new(),
+                    Robots::new(),
+                    24,
+                    &mut HashMap::new(),
+                    &mut HashMap::new(),
+                )
         })
+        .inspect(|x| println!("{}", x))
         .sum())
 }
 
