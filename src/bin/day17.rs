@@ -143,6 +143,7 @@ impl Chamber {
     }
 }
 
+#[inline(always)]
 fn move_left_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
     let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
         | ((chamber.row(rock_bottom + 1) as u64) << 16)
@@ -155,6 +156,7 @@ fn move_left_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u6
     }
 }
 
+#[inline(always)]
 fn move_right_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
     let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
         | ((chamber.row(rock_bottom + 1) as u64) << 16)
