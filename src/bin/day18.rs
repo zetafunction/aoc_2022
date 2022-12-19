@@ -12,127 +12,11 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+use aoc_2022::geometry::{Bounds3, Point3};
 use aoc_2022::{oops, oops::Oops};
-use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read};
-use std::ops::Add;
 use std::str::FromStr;
-
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Point3 {
-    x: i32,
-    y: i32,
-    z: i32,
-}
-
-struct Neighbors<'a> {
-    p: &'a Point3,
-    iter: std::slice::Iter<'static, Vector3>,
-}
-
-impl<'a> Iterator for Neighbors<'a> {
-    type Item = Point3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(v) = self.iter.next() {
-            Some(*self.p + *v)
-        } else {
-            None
-        }
-    }
-}
-
-impl Point3 {
-    const fn new(x: i32, y: i32, z: i32) -> Self {
-        Point3 { x, y, z }
-    }
-
-    fn neighbors(&self) -> Neighbors {
-        const NEIGHBOR_VECTORS: &[Vector3] = &[
-            Vector3::new(-1, 0, 0),
-            Vector3::new(1, 0, 0),
-            Vector3::new(0, -1, 0),
-            Vector3::new(0, 1, 0),
-            Vector3::new(0, 0, -1),
-            Vector3::new(0, 0, 1),
-        ];
-
-        Neighbors {
-            p: self,
-            iter: NEIGHBOR_VECTORS.iter(),
-        }
-    }
-}
-
-impl Add<Vector3> for Point3 {
-    type Output = Point3;
-
-    fn add(self, rhs: Vector3) -> Self::Output {
-        Point3::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z)
-    }
-}
-
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Vector3 {
-    x: i32,
-    y: i32,
-    z: i32,
-}
-
-impl Vector3 {
-    const fn new(x: i32, y: i32, z: i32) -> Self {
-        Vector3 { x, y, z }
-    }
-}
-
-// TODO: Maybe this should be a cube class?
-struct Bounds3 {
-    min_x: i32,
-    max_x: i32,
-    min_y: i32,
-    max_y: i32,
-    min_z: i32,
-    max_z: i32,
-}
-
-impl Bounds3 {
-    fn contains(&self, p: &Point3) -> bool {
-        p.x >= self.min_x
-            && p.x <= self.max_x
-            && p.y >= self.min_y
-            && p.y <= self.max_y
-            && p.z >= self.min_z
-            && p.z <= self.max_z
-    }
-
-    fn from_point3s<I>(i: I) -> Self
-    where
-        I: IntoIterator,
-        I::Item: Borrow<Point3>,
-    {
-        i.into_iter()
-            .fold(Self::new_uninitialized(), |b, p| Bounds3 {
-                min_x: std::cmp::min(b.min_x, p.borrow().x - 1),
-                max_x: std::cmp::max(b.max_x, p.borrow().x + 1),
-                min_y: std::cmp::min(b.min_y, p.borrow().y - 1),
-                max_y: std::cmp::max(b.max_y, p.borrow().y + 1),
-                min_z: std::cmp::min(b.min_z, p.borrow().z - 1),
-                max_z: std::cmp::max(b.max_z, p.borrow().z + 1),
-            })
-    }
-
-    fn new_uninitialized() -> Self {
-        Bounds3 {
-            min_x: i32::MAX,
-            max_x: i32::MIN,
-            min_y: i32::MAX,
-            max_y: i32::MIN,
-            min_z: i32::MAX,
-            max_z: i32::MIN,
-        }
-    }
-}
 
 struct Puzzle {
     points: Vec<Point3>,
@@ -189,7 +73,7 @@ fn part2(puzzle: &Puzzle) -> i32 {
     let mut count = 0;
     let mut frontier = VecDeque::new();
     let mut visited = HashSet::new();
-    frontier.push_back(Point3::new(bounds.min_x, bounds.min_y, bounds.min_z));
+    frontier.push_back(bounds.min);
     visited.insert(*frontier.front().unwrap());
 
     while let Some(p) = frontier.pop_front() {
