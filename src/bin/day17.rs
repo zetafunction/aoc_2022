@@ -226,6 +226,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     // Represents the bottom of the current rock.
     let mut topmost_rock = 0;
     let mut rock_bottom = 1;
+    let mut chamber_rows: u64 = 0;
     while rock_count < MAX_ROCK_COUNT {
         match state {
             State::NewRock => {
@@ -259,12 +260,12 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 if rock_count < 15 {
                     // chamber.render();
                 }
+                chamber_rows = 0x80ff80ff80ff80ff;
                 continue;
             }
             State::FallJet => {
-                if ((current_rock & 0xffff) as Row) & chamber.row(rock_bottom - 1) != 0
-                    || ((current_rock >> 16 & 0xffff) as Row) & chamber.row(rock_bottom) != 0
-                {
+                chamber_rows = (chamber_rows << 16) | (chamber.row(rock_bottom - 1) as u64);
+                if (current_rock & chamber_rows) != 0 {
                     // rock_bottom is where rocks spawn, which is one above the actual topmost
                     // rock.
                     let possible_new_top = rock_bottom + current_rock_height - 1;
@@ -282,10 +283,13 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 }
                 rock_bottom -= 1;
                 // jets is a cycled iterator that will never return None.
-                current_rock = match unsafe { jets.next().unwrap_unchecked() } {
-                    Jet::Left => chamber.maybe_move_left(rock_bottom, current_rock),
-                    Jet::Right => chamber.maybe_move_right(rock_bottom, current_rock),
+                let shifted_rock = match unsafe { jets.next().unwrap_unchecked() } {
+                    Jet::Left => current_rock << 1,
+                    Jet::Right => current_rock >> 1,
                 };
+                if (shifted_rock & chamber_rows) == 0 {
+                    current_rock = shifted_rock;
+                }
                 continue;
             }
         }
@@ -298,7 +302,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    // return run_simulation::<1_000_000_000>(puzzle);
+    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
