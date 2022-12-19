@@ -171,23 +171,53 @@ struct Blueprint {
 }
 
 impl Blueprint {
-    fn solve_for_max_geodes(&self, resources: Resources, robots: Robots, time_left: i32) -> i32 {
+    fn solve_for_max_geodes(
+        &self,
+        resources: Resources,
+        robots: Robots,
+        time_left: i32,
+        seen: &mut HashMap<Robots, i32>,
+        did_build: bool,
+    ) -> i32 {
         if time_left == 0 {
             return resources.geode;
         }
 
+        if did_build {
+            if let Some(so_far) = seen.get_mut(&robots) {
+                if *so_far > time_left {
+                    return 0;
+                }
+                *so_far = time_left;
+            } else {
+                seen.insert(robots, time_left);
+            }
+        }
+
+        let mut could_build_geode_or_obsidian = false;
         let mut best = resources.geode;
         if let Some(resources) = resources.maybe_build_geode_robot(self) {
+            could_build_geode_or_obsidian = true;
             let new_resources = resources.collect(&robots);
-            let result =
-                self.solve_for_max_geodes(new_resources, robots.add_geode(), time_left - 1);
+            let result = self.solve_for_max_geodes(
+                new_resources,
+                robots.add_geode(),
+                time_left - 1,
+                seen,
+                true,
+            );
             best = std::cmp::max(best, result);
         } else {
             if let Some(resources) = resources.maybe_build_ore_robot(self) {
                 // println!("building ore robot at {}", time_left);
                 let new_resources = resources.collect(&robots);
-                let result =
-                    self.solve_for_max_geodes(new_resources, robots.add_ore(), time_left - 1);
+                let result = self.solve_for_max_geodes(
+                    new_resources,
+                    robots.add_ore(),
+                    time_left - 1,
+                    seen,
+                    true,
+                );
                 best = std::cmp::max(best, result);
             }
             if (robots.clay as f32 / robots.ore as f32)
@@ -196,8 +226,13 @@ impl Blueprint {
                 if let Some(resources) = resources.maybe_build_clay_robot(self) {
                     // println!("building clay robot at {}", time_left);
                     let new_resources = resources.collect(&robots);
-                    let result =
-                        self.solve_for_max_geodes(new_resources, robots.add_clay(), time_left - 1);
+                    let result = self.solve_for_max_geodes(
+                        new_resources,
+                        robots.add_clay(),
+                        time_left - 1,
+                        seen,
+                        true,
+                    );
                     best = std::cmp::max(best, result);
                 }
             }
@@ -205,20 +240,31 @@ impl Blueprint {
                 < (self.geode_robot_obsidian_cost as f32 / self.geode_robot_ore_cost as f32)
             {
                 if let Some(resources) = resources.maybe_build_obsidian_robot(self) {
+                    could_build_geode_or_obsidian = true;
                     let new_resources = resources.collect(&robots);
                     let result = self.solve_for_max_geodes(
                         new_resources,
                         robots.add_obsidian(),
                         time_left - 1,
+                        seen,
+                        true,
                     );
                     best = std::cmp::max(best, result);
                 }
             }
         }
-        best = std::cmp::max(
-            best,
-            self.solve_for_max_geodes(resources.collect(&robots), robots, time_left - 1),
-        );
+        if !could_build_geode_or_obsidian {
+            best = std::cmp::max(
+                best,
+                self.solve_for_max_geodes(
+                    resources.collect(&robots),
+                    robots,
+                    time_left - 1,
+                    seen,
+                    false,
+                ),
+            );
+        }
         return best;
     }
 }
@@ -281,7 +327,14 @@ fn part1(puzzle: &Puzzle) -> Result<i32, Oops> {
         .enumerate()
         .map(|(i, blueprint)| {
             println!("{:?}", blueprint);
-            (i + 1) as i32 * blueprint.solve_for_max_geodes(Resources::new(), Robots::new(), 24)
+            (i + 1) as i32
+                * blueprint.solve_for_max_geodes(
+                    Resources::new(),
+                    Robots::new(),
+                    24,
+                    &mut HashMap::new(),
+                    false,
+                )
         })
         .inspect(|x| println!("{}", x))
         .sum())
@@ -294,7 +347,13 @@ fn part2(puzzle: &Puzzle) -> Result<i32, Oops> {
         .take(3)
         .map(|blueprint| {
             println!("{:?}", blueprint);
-            blueprint.solve_for_max_geodes(Resources::new(), Robots::new(), 32)
+            blueprint.solve_for_max_geodes(
+                Resources::new(),
+                Robots::new(),
+                32,
+                &mut HashMap::new(),
+                false,
+            )
         })
         .inspect(|x| println!("{}", x))
         .product())
@@ -337,6 +396,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(62, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(56 * 62, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
