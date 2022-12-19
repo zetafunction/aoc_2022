@@ -12,55 +12,42 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+use aoc_2022::geometry::Point2;
 use aoc_2022::{oops, oops::Oops};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
 
 struct Puzzle {
-    map: Vec<Vec<i32>>,
-    start: (usize, usize),
-    end: (usize, usize),
-}
-
-fn advance_search(
-    map: &Vec<Vec<i32>>,
-    (cur_x, cur_y): (usize, usize),
-    visited: &HashSet<(usize, usize)>,
-) -> Vec<(usize, usize)> {
-    [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        .iter()
-        .map(|(mod_x, mod_y)| (cur_x as i32 + mod_x, cur_y as i32 + mod_y))
-        .filter(|&(x, y)| {
-            x >= 0
-                && (x as usize) < map.len()
-                && y >= 0
-                && (y as usize) < map[0].len()
-                && !visited.contains(&(x as usize, y as usize))
-                && map[x as usize][y as usize] - map[cur_x][cur_y] <= 1
-        })
-        .map(|(x, y)| (x as usize, y as usize))
-        .collect::<Vec<_>>()
+    map: HashMap<Point2, i32>,
+    start: Point2,
+    end: Point2,
 }
 
 impl Puzzle {
-    fn bfs(&self, start: (usize, usize)) -> Option<usize> {
-        let mut visited = HashSet::new();
+    fn bfs(&self, start: &Point2) -> Option<usize> {
         let mut candidates = VecDeque::new();
         let mut distances = HashMap::new();
-        candidates.push_back(start);
-        distances.insert(start, 0);
+        candidates.push_back(*start);
+        distances.insert(*start, 0);
         while let Some(next) = candidates.pop_front() {
-            visited.insert(next);
-            let next_candidates = advance_search(&self.map, next, &visited);
+            let current_height = self.map.get(&next).unwrap();
             let current_distance = *distances.get(&next).unwrap();
-            for c in next_candidates {
-                distances.insert(c, current_distance + 1);
-                if !candidates.contains(&c) {
-                    candidates.push_back(c);
+            for neighbor in next.neighbors() {
+                // TODO: try using the Entry API to avoid contains_key followed by insert.
+                let Some(height) = self.map.get(&neighbor) else {
+                    continue;
+                };
+                if height - current_height > 1 {
+                    continue;
                 }
+                let Entry::Vacant(v) = distances.entry(neighbor) else {
+                    continue;
+                };
+                candidates.push_back(neighbor);
+                v.insert(current_distance + 1);
             }
         }
         distances.get(&self.end).copied()
@@ -74,26 +61,24 @@ impl FromStr for Puzzle {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut start = None;
         let mut end = None;
-        let map = s
-            .lines()
-            .enumerate()
-            .map(|(x, line)| {
-                line.chars()
-                    .enumerate()
-                    .map(|(y, c)| {
-                        if c == 'S' {
-                            start = Some((x, y));
-                            0
-                        } else if c == 'E' {
-                            end = Some((x, y));
-                            25
-                        } else {
-                            c as i32 - 'a' as i32
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+        let mut map = HashMap::new();
+        for (x, line) in (1..).zip(s.lines()) {
+            for (y, c) in (1..).zip(line.chars()) {
+                let p = Point2::new(x, y);
+                map.insert(
+                    p,
+                    if c == 'S' {
+                        start = Some(p);
+                        0
+                    } else if c == 'E' {
+                        end = Some(p);
+                        25
+                    } else {
+                        c as i32 - 'a' as i32
+                    },
+                );
+            }
+        }
         Ok(Puzzle {
             map,
             start: start.ok_or_else(|| oops!("no start"))?,
@@ -107,20 +92,19 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    puzzle.bfs(puzzle.start).ok_or_else(|| oops!("no solution"))
+    puzzle
+        .bfs(&puzzle.start)
+        .ok_or_else(|| oops!("no solution"))
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    let candidates = (0..puzzle.map.len())
-        .flat_map(|x| (0..puzzle.map[0].len()).map(move |y| (x, y)))
-        .filter(|&(x, y)| puzzle.map[x][y] == 0)
-        .collect::<Vec<_>>();
-    let mut results = candidates
+    puzzle
+        .map
         .iter()
-        .filter_map(|&c| puzzle.bfs(c))
-        .collect::<Vec<_>>();
-    results.sort();
-    results.first().copied().ok_or_else(|| oops!("no solution"))
+        .filter_map(|(k, v)| if *v == 0 { Some(k) } else { None })
+        .filter_map(|start| puzzle.bfs(start))
+        .min()
+        .ok_or_else(|| oops!("no solution"))
 }
 
 fn main() -> Result<(), Oops> {

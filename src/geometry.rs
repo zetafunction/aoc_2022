@@ -25,17 +25,36 @@ impl Point2 {
     pub fn new(x: i32, y: i32) -> Self {
         Point2 { x, y }
     }
+
+    pub fn neighbors(&self) -> Neighbors2 {
+        const NEIGHBOR_VECTORS: &[Vector2] = &[
+            Vector2::new(-1, 0),
+            Vector2::new(1, 0),
+            Vector2::new(0, -1),
+            Vector2::new(0, 1),
+        ];
+
+        Neighbors2 {
+            p: self,
+            iter: NEIGHBOR_VECTORS.iter(),
+        }
+    }
 }
 
-#[derive(Clone, Copy)]
-pub struct Vector2 {
-    pub x: i32,
-    pub y: i32,
+pub struct Neighbors2<'a> {
+    p: &'a Point2,
+    iter: std::slice::Iter<'static, Vector2>,
 }
 
-impl Vector2 {
-    pub fn new(x: i32, y: i32) -> Self {
-        Vector2 { x, y }
+impl<'a> Iterator for Neighbors2<'a> {
+    type Item = Point2;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(v) = self.iter.next() {
+            Some(*self.p + *v)
+        } else {
+            None
+        }
     }
 }
 
@@ -60,28 +79,23 @@ impl Sub for Point2 {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct Vector2 {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Vector2 {
+    pub const fn new(x: i32, y: i32) -> Self {
+        Vector2 { x, y }
+    }
+}
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Point3 {
     pub x: i32,
     pub y: i32,
     pub z: i32,
-}
-
-pub struct Neighbors3<'a> {
-    p: &'a Point3,
-    iter: std::slice::Iter<'static, Vector3>,
-}
-
-impl<'a> Iterator for Neighbors3<'a> {
-    type Item = Point3;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(v) = self.iter.next() {
-            Some(*self.p + *v)
-        } else {
-            None
-        }
-    }
 }
 
 impl Point3 {
@@ -102,6 +116,23 @@ impl Point3 {
         Neighbors3 {
             p: self,
             iter: NEIGHBOR_VECTORS.iter(),
+        }
+    }
+}
+
+pub struct Neighbors3<'a> {
+    p: &'a Point3,
+    iter: std::slice::Iter<'static, Vector3>,
+}
+
+impl<'a> Iterator for Neighbors3<'a> {
+    type Item = Point3;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(v) = self.iter.next() {
+            Some(*self.p + *v)
+        } else {
+            None
         }
     }
 }
