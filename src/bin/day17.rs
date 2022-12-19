@@ -85,24 +85,24 @@ enum State {
 
 const GRID_ROWS: usize = 1024;
 
-struct BitGrid {
+struct Chamber {
     base: usize,
     used: usize,
     data: [Row; GRID_ROWS],
 }
 
-impl BitGrid {
+impl Chamber {
     fn new() -> Self {
-        let mut grid = BitGrid {
+        let mut chamber = Chamber {
             base: 0,
             used: 10,
             data: [0; GRID_ROWS],
         };
-        grid.data[0] = 0x0000ffff;
+        chamber.data[0] = 0x0000ffff;
         for i in 1..GRID_ROWS {
-            grid.data[i] = 0x000080ff;
+            chamber.data[i] = 0x000080ff;
         }
-        grid
+        chamber
     }
 
     fn mark_new_rows_used(&mut self, delta: usize) {
@@ -143,7 +143,7 @@ impl BitGrid {
     }
 }
 
-fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u64) -> u64 {
+fn move_left_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
     let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
         | ((chamber.row(rock_bottom + 1) as u64) << 16)
         | ((chamber.row(rock_bottom + 2) as u64) << 32)
@@ -155,7 +155,7 @@ fn move_left_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u6
     }
 }
 
-fn move_right_if_possible(chamber: &BitGrid, rock_bottom: usize, current_rock: u64) -> u64 {
+fn move_right_if_possible(chamber: &Chamber, rock_bottom: usize, current_rock: u64) -> u64 {
     let chamber_rows = ((chamber.row(rock_bottom) as u64) << 0)
         | ((chamber.row(rock_bottom + 1) as u64) << 16)
         | ((chamber.row(rock_bottom + 2) as u64) << 32)
@@ -178,7 +178,7 @@ fn rock_and_jets_to_index(rock_count: usize, jet1: Jet, jet2: Jet, jet3: Jet, je
 // Entries are indexed by `rock_and_jets_to_index()`.
 fn build_new_rock_lookup_table() -> Vec<u64> {
     let mut table = vec![0; ROCKS.len() * 16];
-    let grid = BitGrid::new();
+    let chamber = Chamber::new();
     for i in 0..ROCKS.len() {
         for j1 in &[Jet::Left, Jet::Right] {
             for j2 in &[Jet::Left, Jet::Right] {
@@ -186,20 +186,20 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
                     for j4 in &[Jet::Left, Jet::Right] {
                         let rock = ROCKS[i];
                         let rock = match j1 {
-                            Jet::Left => move_left_if_possible(&grid, 8, rock),
-                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
+                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
                         };
                         let rock = match j2 {
-                            Jet::Left => move_left_if_possible(&grid, 8, rock),
-                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
+                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
                         };
                         let rock = match j3 {
-                            Jet::Left => move_left_if_possible(&grid, 8, rock),
-                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
+                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
                         };
                         let rock = match j4 {
-                            Jet::Left => move_left_if_possible(&grid, 8, rock),
-                            Jet::Right => move_right_if_possible(&grid, 8, rock),
+                            Jet::Left => move_left_if_possible(&chamber, 8, rock),
+                            Jet::Right => move_right_if_possible(&chamber, 8, rock),
                         };
                         table[rock_and_jets_to_index(i, *j1, *j2, *j3, *j4)] = rock;
                     }
@@ -215,7 +215,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     let mut jets = puzzle.jets.iter().cycle();
 
     let mut state = State::NewRock;
-    let mut chamber = BitGrid::new();
+    let mut chamber = Chamber::new();
 
     let rock_table = build_new_rock_lookup_table();
     let mut rock_count = 0;
@@ -296,7 +296,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    // return run_simulation::<1_000_000_000>(puzzle);
+    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
