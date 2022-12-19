@@ -123,7 +123,7 @@ fn part2(e: &Entity) -> String {
 }
 
 fn main() -> Result<(), Oops> {
-    let entity = parse(io::stdin().lines().map(|l| l.unwrap()))?;
+    let entity = parse(io::stdin().lines().map(Result::unwrap))?;
 
     println!("{}", part1(&entity));
     println!("{}", part2(&entity));

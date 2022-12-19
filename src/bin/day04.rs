@@ -94,7 +94,7 @@ fn part2(entities: &[Entity]) -> usize {
 }
 
 fn main() -> Result<(), Oops> {
-    let entities = parse(io::stdin().lines().map(|l| l.unwrap()))?;
+    let entities = parse(io::stdin().lines().map(Result::unwrap))?;
 
     println!("{}", part1(&entities));
     println!("{}", part2(&entities));

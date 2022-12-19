@@ -61,7 +61,7 @@ impl FromStr for Entity {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut tree = PathTree::new();
         let mut current_path = Vec::new();
-        for cmd_and_output in s.split('$').map(|x| x.trim()).filter(|x| !x.is_empty()) {
+        for cmd_and_output in s.split('$').map(str::trim).filter(|x| !x.is_empty()) {
             let (cmd, remainder) = cmd_and_output
                 .split_once([' ', '\n'])
                 .ok_or_else(|| oops!("bad input"))?;

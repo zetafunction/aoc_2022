@@ -321,13 +321,13 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<i32, Oops> {
-    Ok(puzzle
+fn part1(puzzle: &Puzzle) -> i32 {
+    puzzle
         .blueprints
         .iter()
         .enumerate()
         .map(|(i, blueprint)| {
-            println!("{:?}", blueprint);
+            println!("{blueprint:?}");
             (i + 1) as i32
                 * blueprint.solve_for_max_geodes(
                     Resources::new(),
@@ -337,17 +337,17 @@ fn part1(puzzle: &Puzzle) -> Result<i32, Oops> {
                     false,
                 )
         })
-        .inspect(|x| println!("{}", x))
-        .sum())
+        .inspect(|x| println!("{x}"))
+        .sum()
 }
 
-fn part2(puzzle: &Puzzle) -> Result<i32, Oops> {
-    Ok(puzzle
+fn part2(puzzle: &Puzzle) -> i32 {
+    puzzle
         .blueprints
         .iter()
         .take(3)
         .map(|blueprint| {
-            println!("{:?}", blueprint);
+            println!("{blueprint:?}");
             blueprint.solve_for_max_geodes(
                 Resources::new(),
                 Robots::new(),
@@ -356,8 +356,8 @@ fn part2(puzzle: &Puzzle) -> Result<i32, Oops> {
                 false,
             )
         })
-        .inspect(|x| println!("{}", x))
-        .product())
+        .inspect(|x| println!("{x}"))
+        .product()
 }
 
 fn main() -> Result<(), Oops> {
@@ -367,8 +367,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -392,11 +392,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(33, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(33, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(56 * 62, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(56 * 62, part2(&parse(SAMPLE).unwrap()));
     }
 }

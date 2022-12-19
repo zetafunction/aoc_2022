@@ -96,11 +96,11 @@ impl FromStr for Puzzle {
 
 fn parse(input: &str) -> Result<Puzzle, Oops> {
     let r = input.parse();
-    println!("{:?}", r);
+    println!("{r:?}");
     r
 }
 
-fn part1(puzzle: &Puzzle, y: i64) -> Result<usize, Oops> {
+fn part1(puzzle: &Puzzle, y: i64) -> usize {
     // Given a fixed `y`, find the min `x` and max `x` that can possibly be covered by a sensor.
     let (min_x, max_x) = puzzle.sensors.iter().fold((i64::MAX, i64::MIN), |a, s| {
         let leftover = (s.loc.1 - y).abs();
@@ -120,12 +120,14 @@ fn part1(puzzle: &Puzzle, y: i64) -> Result<usize, Oops> {
             x += 1;
             continue;
         };
+        // TODO: it's unclear that this logic is correct. Sensors can overlap by a square if the
+        // same beacon is considered the nearest beacon for multiple sensors..
         c += (sensor.loc.0 + skip + 1) - x;
         x = sensor.loc.0 + skip + 1;
     }
     c -= puzzle.sensors.iter().filter(|s| s.loc.1 == y).count() as i64;
     c -= puzzle.beacons.iter().filter(|b| b.1 == y).count() as i64;
-    Ok(c as usize)
+    c as usize
 }
 
 fn part2(puzzle: &Puzzle, (max_x, max_y): (i64, i64)) -> Result<usize, Oops> {
@@ -149,7 +151,7 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle, 2_000_000)?);
+    println!("{}", part1(&puzzle, 2_000_000));
     println!("{}", part2(&puzzle, (4_000_000, 4_000_000))?);
 
     Ok(())
@@ -178,7 +180,7 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(26, part1(&parse(SAMPLE).unwrap(), 10).unwrap());
+        assert_eq!(26, part1(&parse(SAMPLE).unwrap(), 10));
     }
 
     #[test]

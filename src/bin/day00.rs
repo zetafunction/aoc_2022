@@ -25,10 +25,7 @@ impl FromStr for Puzzle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Puzzle {
-            values: s
-                .lines()
-                .map(|s| s.parse::<usize>())
-                .collect::<Result<Vec<_>, _>>()?,
+            values: s.lines().map(str::parse).collect::<Result<Vec<_>, _>>()?,
         })
     }
 }
@@ -37,17 +34,12 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(puzzle.values.iter().sum())
+fn part1(puzzle: &Puzzle) -> usize {
+    puzzle.values.iter().sum()
 }
 
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    puzzle
-        .values
-        .iter()
-        .max()
-        .ok_or_else(|| oops!("no entities"))
-        .copied()
+fn part2(puzzle: &Puzzle) -> usize {
+    *puzzle.values.iter().max().unwrap()
 }
 
 fn main() -> Result<(), Oops> {
@@ -57,8 +49,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle)?);
-    println!("{}", part2(&puzzle)?);
+    println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -78,11 +70,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(3579124689, part1(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(3579124689, part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
     }
 }

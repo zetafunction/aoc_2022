@@ -113,7 +113,7 @@ fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
     let candidates = (0..puzzle.map.len())
         .flat_map(|x| (0..puzzle.map[0].len()).map(move |y| (x, y)))
-        .filter(|&(x, y)| puzzle.map[x as usize][y as usize] == 0)
+        .filter(|&(x, y)| puzzle.map[x][y] == 0)
         .collect::<Vec<_>>();
     let mut results = candidates
         .iter()

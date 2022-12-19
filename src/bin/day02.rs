@@ -130,6 +130,6 @@ fn main() {
         score2 += determine_shape_score(determine_shape_from_outcome(parsed_line));
         score2 += determine_outcome_score(parsed_line.outcome);
     }
-    println!("{}", score);
-    println!("{}", score2);
+    println!("{score}");
+    println!("{score2}");
 }

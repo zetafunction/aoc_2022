@@ -131,13 +131,9 @@ impl FromStr for Puzzle {
 }
 
 fn parse(input: &str) -> Result<Puzzle, Oops> {
-    match input.parse() {
-        Ok(p) => {
-            println!("{:?}", p);
-            Ok(p)
-        }
-        e => e,
-    }
+    let p = input.parse();
+    println!("{p:?}");
+    p
 }
 
 fn drop_sand(puzzle: &Puzzle, position: &Point) -> Option<Point> {
@@ -182,7 +178,7 @@ fn part1(puzzle: &Puzzle) -> usize {
     loop {
         for x in 0.. {
             let Some(position) = drop_sand(&puzzle, &Point::new(500, 0)) else {
-                println!("{:?}", puzzle);
+                println!("{puzzle:?}");
                 return x;
             };
             puzzle.set(position, Material::Sand);
@@ -204,7 +200,7 @@ fn part2(puzzle: &Puzzle) -> usize {
     loop {
         for x in 1.. {
             let Some(position) = drop_sand(&puzzle, &Point::new(500, 0)) else {
-                println!("{:?}", puzzle);
+                println!("{puzzle:?}");
                 return x;
             };
             puzzle.set(position, Material::Sand);

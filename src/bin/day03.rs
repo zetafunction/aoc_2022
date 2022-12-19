@@ -89,7 +89,7 @@ fn part2(rucksacks: &[Rucksack]) -> Result<u32, Oops> {
 }
 
 fn main() -> Result<(), Oops> {
-    let rucksacks = parse(io::stdin().lines().map(|l| l.unwrap()))?;
+    let rucksacks = parse(io::stdin().lines().map(Result::unwrap))?;
 
     println!("{}", part1(&rucksacks)?);
     println!("{}", part2(&rucksacks)?);

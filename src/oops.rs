@@ -23,7 +23,7 @@ pub enum Oops {
 impl Display for Oops {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
-            Oops::Message(s) => write!(f, "oops: {}", s)?,
+            Oops::Message(s) => write!(f, "oops: {s}")?,
             Oops::RealError(e) => e.fmt(f)?,
         }
         Ok(())

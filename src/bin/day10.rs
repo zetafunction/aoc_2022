@@ -93,7 +93,7 @@ fn part1(puzzle: &Puzzle) -> i32 {
         .zip(states)
         .skip(19)
         .step_by(40)
-        .map(|(i, state)| i as i32 * state.x)
+        .map(|(i, state)| i * state.x)
         .sum()
 }
 
@@ -105,7 +105,7 @@ fn part2(puzzle: &Puzzle) -> String {
         .flat_map(|(cursor, state)| {
             if cursor == 0 { Some('\n') } else { None }
                 .into_iter()
-                .chain(if ((cursor % 40) as i32 - state.x).abs() <= 1 {
+                .chain(if ((cursor % 40) - state.x).abs() <= 1 {
                     Some('#').into_iter()
                 } else {
                     Some('.').into_iter()

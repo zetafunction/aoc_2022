@@ -61,7 +61,7 @@ fn part1(puzzle: &Puzzle) -> i32 {
             .sum();
         counts.insert(*p, count);
     }
-    counts.iter().map(|(_, v)| v).sum()
+    counts.values().sum()
 }
 
 fn part2(puzzle: &Puzzle) -> i32 {
