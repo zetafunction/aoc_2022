@@ -16,8 +16,33 @@ use aoc_2022::{oops, oops::Oops};
 use std::io::{self, Read};
 use std::str::FromStr;
 
+struct Blueprint {
+    ore_robot_ore_cost: i32,
+    clay_robot_ore_cost: i32,
+    obsidian_robot_ore_cost: i32,
+    obsidian_robot_clay_cost: i32,
+    geode_robot_ore_cost: i32,
+    geode_robot_obsidian_cost: i32,
+}
+
+impl FromStr for Blueprint {
+    type Err = Oops;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let words = s.split_whitespace().collect::<Vec<_>>();
+        Ok(Blueprint {
+            ore_robot_ore_cost: words[6].parse()?,
+            clay_robot_ore_cost: words[12].parse()?,
+            obsidian_robot_ore_cost: words[18].parse()?,
+            obsidian_robot_clay_cost: words[21].parse()?,
+            geode_robot_ore_cost: words[27].parse()?,
+            geode_robot_obsidian_cost: words[30].parse()?,
+        })
+    }
+}
+
 struct Puzzle {
-    values: Vec<usize>,
+    blueprints: Vec<Blueprint>,
 }
 
 impl FromStr for Puzzle {
@@ -25,9 +50,9 @@ impl FromStr for Puzzle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Puzzle {
-            values: s
+            blueprints: s
                 .lines()
-                .map(|s| s.parse::<usize>())
+                .map(|s| s.parse())
                 .collect::<Result<Vec<_>, _>>()?,
         })
     }

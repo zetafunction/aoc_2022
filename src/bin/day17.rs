@@ -298,7 +298,7 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    return run_simulation::<1_000_000_000>(puzzle);
+    // return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
