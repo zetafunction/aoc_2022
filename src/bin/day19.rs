@@ -17,16 +17,6 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Debug)]
-struct Blueprint {
-    ore_robot_ore_cost: i32,
-    clay_robot_ore_cost: i32,
-    obsidian_robot_ore_cost: i32,
-    obsidian_robot_clay_cost: i32,
-    geode_robot_ore_cost: i32,
-    geode_robot_obsidian_cost: i32,
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Resources {
     ore: i32,
@@ -169,90 +159,50 @@ struct Stuff {
     robots: Robots,
 }
 
+#[derive(Debug)]
+struct Blueprint {
+    ore_robot_ore_cost: i32,
+    clay_robot_ore_cost: i32,
+    obsidian_robot_ore_cost: i32,
+    obsidian_robot_clay_cost: i32,
+    geode_robot_ore_cost: i32,
+    geode_robot_obsidian_cost: i32,
+    construct_ore_robot_cycle: i32,
+}
+
 impl Blueprint {
-    fn solve_for_max_geodes(
-        &self,
-        resources: Resources,
-        robots: Robots,
-        time_left: i32,
-        best_resources: &mut HashMap<Stuff, i32>,
-        best_robots: &mut HashMap<Robots, i32>,
-    ) -> i32 {
-        /*
-        println!(
-            "robots: {:?}, resources: {:?}, time: {}",
-            robots, resources, time_left
-        );
-        */
+    fn solve_for_max_geodes(&self, resources: Resources, robots: Robots, time_left: i32) -> i32 {
         if time_left == 0 {
             return resources.geode;
         }
 
-        /*
-        let stuff = Stuff { resources, robots };
-        if let Some(best) = best_resources.get_mut(&stuff) {
-            if *best > time_left {
-                println!("pruned");
-                return 0;
-            }
-            *best = time_left;
-        } else {
-            best_resources.insert(stuff, time_left);
-        }
-
-        if let Some(best) = best_robots.get_mut(&robots) {
-            if *best > time_left {
-                println!("pruned?");
-                return 0;
-            }
-            *best = time_left;
-        } else {
-            best_robots.insert(robots, time_left);
-        }
-        */
-
         let mut best = resources.geode;
         if let Some(resources) = resources.maybe_build_geode_robot(self) {
             let new_resources = resources.collect(&robots);
-            let result = self.solve_for_max_geodes(
-                new_resources,
-                robots.add_geode(),
-                time_left - 1,
-                best_resources,
-                best_robots,
-            );
+            let result =
+                self.solve_for_max_geodes(new_resources, robots.add_geode(), time_left - 1);
             best = std::cmp::max(best, result);
         } else {
             if let Some(resources) = resources.maybe_build_ore_robot(self) {
                 // println!("building ore robot at {}", time_left);
                 let new_resources = resources.collect(&robots);
-                let result = self.solve_for_max_geodes(
-                    new_resources,
-                    robots.add_ore(),
-                    time_left - 1,
-                    best_resources,
-                    best_robots,
-                );
+                let result =
+                    self.solve_for_max_geodes(new_resources, robots.add_ore(), time_left - 1);
                 best = std::cmp::max(best, result);
             }
             if (robots.clay as f32 / robots.ore as f32)
-                < (self.obsidian_robot_clay_cost as f32 / self.obsidian_robot_ore_cost as f32) * 1.2
+                < (self.obsidian_robot_clay_cost as f32 / self.obsidian_robot_ore_cost as f32)
             {
                 if let Some(resources) = resources.maybe_build_clay_robot(self) {
                     // println!("building clay robot at {}", time_left);
                     let new_resources = resources.collect(&robots);
-                    let result = self.solve_for_max_geodes(
-                        new_resources,
-                        robots.add_clay(),
-                        time_left - 1,
-                        best_resources,
-                        best_robots,
-                    );
+                    let result =
+                        self.solve_for_max_geodes(new_resources, robots.add_clay(), time_left - 1);
                     best = std::cmp::max(best, result);
                 }
             }
             if (robots.obsidian as f32 / robots.ore as f32)
-                < (self.geode_robot_obsidian_cost as f32 / self.geode_robot_ore_cost as f32) * 1.2
+                < (self.geode_robot_obsidian_cost as f32 / self.geode_robot_ore_cost as f32)
             {
                 if let Some(resources) = resources.maybe_build_obsidian_robot(self) {
                     let new_resources = resources.collect(&robots);
@@ -260,8 +210,6 @@ impl Blueprint {
                         new_resources,
                         robots.add_obsidian(),
                         time_left - 1,
-                        best_resources,
-                        best_robots,
                     );
                     best = std::cmp::max(best, result);
                 }
@@ -269,13 +217,7 @@ impl Blueprint {
         }
         best = std::cmp::max(
             best,
-            self.solve_for_max_geodes(
-                resources.collect(&robots),
-                robots,
-                time_left - 1,
-                best_resources,
-                best_robots,
-            ),
+            self.solve_for_max_geodes(resources.collect(&robots), robots, time_left - 1),
         );
         return best;
     }
@@ -286,13 +228,27 @@ impl FromStr for Blueprint {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let words = s.split_whitespace().collect::<Vec<_>>();
+        let ore_robot_ore_cost = words[6].parse()?;
+        let clay_robot_ore_cost = words[12].parse()?;
+        let obsidian_robot_ore_cost = words[18].parse()?;
+        let obsidian_robot_clay_cost = words[21].parse()?;
+        let geode_robot_ore_cost = words[27].parse()?;
+        let geode_robot_obsidian_cost = words[30].parse()?;
+        let construct_ore_robot_cycle = std::cmp::max(
+            std::cmp::min(
+                (geode_robot_obsidian_cost as f32 / geode_robot_ore_cost as f32).floor() as i32,
+                (obsidian_robot_clay_cost as f32 / obsidian_robot_ore_cost as f32).floor() as i32,
+            ) - 1,
+            1,
+        );
         Ok(Blueprint {
-            ore_robot_ore_cost: words[6].parse()?,
-            clay_robot_ore_cost: words[12].parse()?,
-            obsidian_robot_ore_cost: words[18].parse()?,
-            obsidian_robot_clay_cost: words[21].parse()?,
-            geode_robot_ore_cost: words[27].parse()?,
-            geode_robot_obsidian_cost: words[30].parse()?,
+            ore_robot_ore_cost,
+            clay_robot_ore_cost,
+            obsidian_robot_ore_cost,
+            obsidian_robot_clay_cost,
+            geode_robot_ore_cost,
+            geode_robot_obsidian_cost,
+            construct_ore_robot_cycle,
         })
     }
 }
@@ -325,21 +281,23 @@ fn part1(puzzle: &Puzzle) -> Result<i32, Oops> {
         .enumerate()
         .map(|(i, blueprint)| {
             println!("{:?}", blueprint);
-            (i + 1) as i32
-                * blueprint.solve_for_max_geodes(
-                    Resources::new(),
-                    Robots::new(),
-                    24,
-                    &mut HashMap::new(),
-                    &mut HashMap::new(),
-                )
+            (i + 1) as i32 * blueprint.solve_for_max_geodes(Resources::new(), Robots::new(), 24)
         })
         .inspect(|x| println!("{}", x))
         .sum())
 }
 
-fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
-    Ok(0)
+fn part2(puzzle: &Puzzle) -> Result<i32, Oops> {
+    Ok(puzzle
+        .blueprints
+        .iter()
+        .take(3)
+        .map(|blueprint| {
+            println!("{:?}", blueprint);
+            blueprint.solve_for_max_geodes(Resources::new(), Robots::new(), 32)
+        })
+        .inspect(|x| println!("{}", x))
+        .product())
 }
 
 fn main() -> Result<(), Oops> {
@@ -365,13 +323,11 @@ mod tests {
         " Each clay robot costs 2 ore.",
         " Each obsidian robot costs 3 ore and 14 clay.",
         " Each geode robot costs 2 ore and 7 obsidian.\n",
-        /*
         "Blueprint 2:",
         " Each ore robot costs 2 ore.",
         " Each clay robot costs 3 ore.",
         " Each obsidian robot costs 3 ore and 8 clay.",
         " Each geode robot costs 3 ore and 12 obsidian.\n",
-        */
     );
 
     #[test]
@@ -381,6 +337,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()).unwrap());
+        assert_eq!(62, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
