@@ -76,30 +76,35 @@ fn mix(
     forward_map: &mut [usize],
     reverse_map: &mut [usize],
 ) {
+    // When moving an element forwards or backwards a position, there are only `mixed_values.len() - 1`
+    // other elements in the list, and thus, only `mixed_values.len() - 1` positions to arrange it
+    // in front or behind of.
+    let positions = mixed_values.len() - 1;
     for (original_idx, &shift) in original_values.iter().enumerate() {
         let current_idx = forward_map[original_idx];
-        // Mixing an element forwards or backwards by size of buffer - 1 leaves the element in the
-        // same position it began. The important observation here is that this operation changes
-        // the *position* of an element relative to all the other elements, and there are only size
-        // of buffer - 1 other elements to position the mixed element between. To avoid pointlessly
-        // shuffling the element around, just process the tail end.
-        let shift = shift % (mixed_values.len() - 1) as i64;
+        // Mixing an element forwards or backwards by `positions` leaves the list of values
+        // unchanged. Avoid pointless shuffling and just process the leftover amount.
+        let shift = shift % positions as i64;
         if shift > 0 {
             let shift = shift as usize;
-            if current_idx + shift >= mixed_values.len() - 1 {
-                // Rather than dealing with edge cases when wrapping around the back of a list, just
-                // shift backwards instead, since the result is identical.
-                let shift = mixed_values.len() - shift - 1;
+            if current_idx + shift >= positions {
+                // The remaining amount will push the mixed element off the end of the list. Just
+                // shift it backwards instead.
+                let shift = positions - shift;
                 shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
             } else {
                 shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
             }
         } else if shift < 0 {
             let shift = shift.abs() as usize;
-            if current_idx + mixed_values.len() - shift <= mixed_values.len() {
-                // Rather than dealing with edge cases when wrapping around the front of a list, just
-                // shift backwards instead, since the result is identical.
-                let shift = mixed_values.len() - shift - 1;
+            // Slightly trickier arithmetic here since these are unsigned types. `shift <
+            // positions` must be true given the modulo operation above, but `shift` may still be
+            // greater than `current_idx`. To avoid it going negative, add `position` to both sides
+            // before performing the comparison.
+            if current_idx + positions - shift <= positions {
+                // The remaining amount will push the mixed element off the front of the list. Just
+                // shift it forwards instead.
+                let shift = positions - shift;
                 shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
             } else {
                 shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
