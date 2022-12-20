@@ -79,8 +79,10 @@ fn mix(
     for (original_idx, &shift) in original_values.iter().enumerate() {
         let current_idx = forward_map[original_idx];
         // Mixing an element forwards or backwards by size of buffer - 1 leaves the element in the
-        // same position it began. To avoid pointlessly shuffling the element around, just process
-        // the tail end.
+        // same position it began. The important observation here is that this operation changes
+        // the *position* of an element relative to all the other elements, and there are only size
+        // of buffer - 1 other elements to position the mixed element between. To avoid pointlessly
+        // shuffling the element around, just process the tail end.
         let shift = shift % (mixed_values.len() - 1) as i64;
         if shift > 0 {
             let shift = shift as usize;
