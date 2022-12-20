@@ -13,7 +13,6 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
-use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -36,9 +35,9 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn shift_forwards(
-    buffer: &mut Vec<i64>,
-    forward_map: &mut BTreeMap<usize, usize>,
-    reverse_map: &mut BTreeMap<usize, usize>,
+    buffer: &mut [i64],
+    forward_map: &mut [usize],
+    reverse_map: &mut [usize],
     base: usize,
     count: usize,
 ) {
@@ -48,23 +47,15 @@ fn shift_forwards(
 
         buffer.swap(this_index, next_index);
 
-        let m = *reverse_map.get(&this_index).unwrap();
-        let n = *reverse_map.get(&next_index).unwrap();
-
-        let o = *forward_map.get(&m).unwrap();
-        let p = *forward_map.get(&n).unwrap();
-
-        reverse_map.insert(this_index, n);
-        reverse_map.insert(next_index, m);
-        forward_map.insert(m, p);
-        forward_map.insert(n, o);
+        forward_map.swap(reverse_map[this_index], reverse_map[next_index]);
+        reverse_map.swap(this_index, next_index);
     }
 }
 
 fn shift_backwards(
-    buffer: &mut Vec<i64>,
-    forward_map: &mut BTreeMap<usize, usize>,
-    reverse_map: &mut BTreeMap<usize, usize>,
+    buffer: &mut [i64],
+    forward_map: &mut [usize],
+    reverse_map: &mut [usize],
     base: usize,
     count: usize,
 ) {
@@ -74,27 +65,19 @@ fn shift_backwards(
 
         buffer.swap(this_index, next_index);
 
-        let m = *reverse_map.get(&this_index).unwrap();
-        let n = *reverse_map.get(&next_index).unwrap();
-
-        let o = *forward_map.get(&m).unwrap();
-        let p = *forward_map.get(&n).unwrap();
-
-        reverse_map.insert(this_index, n);
-        reverse_map.insert(next_index, m);
-        forward_map.insert(m, p);
-        forward_map.insert(n, o);
+        forward_map.swap(reverse_map[this_index], reverse_map[next_index]);
+        reverse_map.swap(this_index, next_index);
     }
 }
 
 fn mix(
-    original_values: &Vec<i64>,
-    mixed_values: &mut Vec<i64>,
-    forward_map: &mut BTreeMap<usize, usize>,
-    reverse_map: &mut BTreeMap<usize, usize>,
+    original_values: &[i64],
+    mixed_values: &mut [i64],
+    forward_map: &mut [usize],
+    reverse_map: &mut [usize],
 ) {
     for (original_idx, &shift) in original_values.iter().enumerate() {
-        let current_idx = *forward_map.get(&original_idx).unwrap();
+        let current_idx = forward_map[original_idx];
         // Mixing an element forwards or backwards by size of buffer - 1 leaves the element in the
         // same position it began. To avoid pointlessly shuffling the element around, just process
         // the tail end.
@@ -102,6 +85,8 @@ fn mix(
         if shift > 0 {
             let shift = shift as usize;
             if current_idx + shift >= mixed_values.len() - 1 {
+                // Rather than dealing with edge cases when wrapping around the back of a list, just
+                // shift backwards instead, since the result is identical.
                 let shift = mixed_values.len() - shift - 1;
                 shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
             } else {
@@ -110,6 +95,8 @@ fn mix(
         } else if shift < 0 {
             let shift = shift.abs() as usize;
             if current_idx + mixed_values.len() - shift <= mixed_values.len() {
+                // Rather than dealing with edge cases when wrapping around the front of a list, just
+                // shift backwards instead, since the result is identical.
                 let shift = mixed_values.len() - shift - 1;
                 shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
             } else {
@@ -119,38 +106,35 @@ fn mix(
     }
 }
 
-fn part1(puzzle: &Puzzle) -> i64 {
+fn part1(puzzle: &Puzzle) -> Result<i64, Oops> {
     let mut output = puzzle.values.clone();
-    let mut forward_map: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
-    let mut reverse_map: BTreeMap<usize, usize> = forward_map.clone();
+    let mut forward_map: Vec<_> = (0..output.len()).collect();
+    let mut reverse_map = forward_map.clone();
     mix(
         &puzzle.values,
         &mut output,
         &mut forward_map,
         &mut reverse_map,
     );
-    let mut zero = None;
-    for (i, v) in output.iter().enumerate() {
-        if *v == 0 {
-            zero = Some(i);
-            break;
-        }
-    }
-    let zero = zero.unwrap();
-    output[(zero + 1000) % output.len()]
+    let zero = output
+        .iter()
+        .enumerate()
+        .find_map(|(i, x)| if *x == 0 { Some(i) } else { None })
+        .ok_or_else(|| oops!("no zero element"))?;
+    Ok(output[(zero + 1000) % output.len()]
         + output[(zero + 2000) % output.len()]
-        + output[(zero + 3000) % output.len()]
+        + output[(zero + 3000) % output.len()])
 }
 
-fn part2(puzzle: &Puzzle) -> i64 {
+fn part2(puzzle: &Puzzle) -> Result<i64, Oops> {
     let decrypted_values = puzzle
         .values
         .iter()
         .map(|v| v * 811589153)
         .collect::<Vec<_>>();
     let mut output = decrypted_values.clone();
-    let mut forward_map: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
-    let mut reverse_map: BTreeMap<usize, usize> = forward_map.clone();
+    let mut forward_map: Vec<_> = (0..output.len()).collect();
+    let mut reverse_map = forward_map.clone();
     for _ in 0..10 {
         mix(
             &decrypted_values,
@@ -159,17 +143,14 @@ fn part2(puzzle: &Puzzle) -> i64 {
             &mut reverse_map,
         );
     }
-    let mut zero = None;
-    for (i, v) in output.iter().enumerate() {
-        if *v == 0 {
-            zero = Some(i);
-            break;
-        }
-    }
-    let zero = zero.unwrap();
-    output[(zero + 1000) % output.len()]
+    let zero = output
+        .iter()
+        .enumerate()
+        .find_map(|(i, x)| if *x == 0 { Some(i) } else { None })
+        .ok_or_else(|| oops!("no zero element"))?;
+    Ok(output[(zero + 1000) % output.len()]
         + output[(zero + 2000) % output.len()]
-        + output[(zero + 3000) % output.len()]
+        + output[(zero + 3000) % output.len()])
 }
 
 fn main() -> Result<(), Oops> {
@@ -179,8 +160,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle));
-    println!("{}", part2(&puzzle));
+    println!("{}", part1(&puzzle)?);
+    println!("{}", part2(&puzzle)?);
 
     Ok(())
 }
@@ -193,11 +174,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(3, part1(&parse(SAMPLE).unwrap()));
+        assert_eq!(3, part1(&parse(SAMPLE).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(1623178306, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(1623178306, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
