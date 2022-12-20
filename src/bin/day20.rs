@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
+use std::cmp::Ordering;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -85,30 +86,34 @@ fn mix(
         // Mixing an element forwards or backwards by `positions` leaves the list of values
         // unchanged. Avoid pointless shuffling and just process the leftover amount.
         let shift = shift % positions as i64;
-        if shift > 0 {
-            let shift = shift as usize;
-            if current_idx + shift >= positions {
-                // The remaining amount will push the mixed element off the end of the list. Just
-                // shift it backwards instead.
-                let shift = positions - shift;
-                shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
-            } else {
-                shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+        match shift.cmp(&0) {
+            Ordering::Greater => {
+                let shift = shift as usize;
+                if current_idx + shift >= positions {
+                    // The remaining amount will push the mixed element off the end of the list. Just
+                    // shift it backwards instead.
+                    let shift = positions - shift;
+                    shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+                } else {
+                    shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+                }
             }
-        } else if shift < 0 {
-            let shift = shift.abs() as usize;
-            // Slightly trickier arithmetic here since these are unsigned types. `shift <
-            // positions` must be true given the modulo operation above, but `shift` may still be
-            // greater than `current_idx`. To avoid it going negative, add `position` to both sides
-            // before performing the comparison.
-            if current_idx + positions - shift <= positions {
-                // The remaining amount will push the mixed element off the front of the list. Just
-                // shift it forwards instead.
-                let shift = positions - shift;
-                shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
-            } else {
-                shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+            Ordering::Less => {
+                let shift = shift.abs() as usize;
+                // Slightly trickier arithmetic here since these are unsigned types. `shift <
+                // positions` must be true given the modulo operation above, but `shift` may still be
+                // greater than `current_idx`. To avoid it going negative, add `position` to both sides
+                // before performing the comparison.
+                if current_idx + positions - shift <= positions {
+                    // The remaining amount will push the mixed element off the front of the list. Just
+                    // shift it forwards instead.
+                    let shift = positions - shift;
+                    shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+                } else {
+                    shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+                }
             }
+            Ordering::Equal => (),
         }
     }
 }
