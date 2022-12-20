@@ -121,8 +121,8 @@ struct Puzzle {
 impl Puzzle {
     fn calculate_mbl<F: Fn(usize) -> usize>(&mut self, rounds: usize, mitigate_worry: &F) -> usize {
         let mut inspections = (0..rounds).fold(vec![0; self.monkeys.len()], |mut acc, _| {
-            for i in 0..self.monkeys.len() {
-                acc[i] += self.monkeys[i].items.len();
+            for (i, acc) in acc.iter_mut().enumerate() {
+                *acc += self.monkeys[i].items.len();
                 self.process_monkey(i, mitigate_worry);
             }
             acc

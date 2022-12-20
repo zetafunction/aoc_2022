@@ -30,26 +30,26 @@ struct Puzzle {
 
 #[allow(clippy::eq_op, clippy::identity_op)]
 const ROCKS: [u64; 5] = [
-    (0b0000000000000000 << 48)
-        | (0b0000000000000000 << 32)
-        | (0b0000000000000000 << 16)
-        | (0b0001111000000000 << 0),
-    (0b0000000000000000 << 48)
-        | (0b0000100000000000 << 32)
-        | (0b0001110000000000 << 16)
-        | (0b0000100000000000 << 0),
-    (0b0000000000000000 << 48)
-        | (0b0000010000000000 << 32)
-        | (0b0000010000000000 << 16)
-        | (0b0001110000000000 << 0),
-    (0b0001000000000000 << 48)
-        | (0b0001000000000000 << 32)
-        | (0b0001000000000000 << 16)
-        | (0b0001000000000000 << 0),
-    (0b0000000000000000 << 48)
-        | (0b0000000000000000 << 32)
-        | (0b0001100000000000 << 16)
-        | (0b0001100000000000 << 0),
+    (0b0000_0000_0000_0000 << 48)
+        | (0b0000_0000_0000_0000 << 32)
+        | (0b0000_0000_0000_0000 << 16)
+        | (0b0001_1110_0000_0000),
+    (0b0000_0000_0000_0000 << 48)
+        | (0b0000_1000_0000_0000 << 32)
+        | (0b0001_1100_0000_0000 << 16)
+        | (0b0000_1000_0000_0000),
+    (0b0000_0000_0000_0000 << 48)
+        | (0b0000_0100_0000_0000 << 32)
+        | (0b0000_0100_0000_0000 << 16)
+        | (0b0001_1100_0000_0000),
+    (0b0001_0000_0000_0000 << 48)
+        | (0b0001_0000_0000_0000 << 32)
+        | (0b0001_0000_0000_0000 << 16)
+        | (0b0001_0000_0000_0000),
+    (0b0000_0000_0000_0000 << 48)
+        | (0b0000_0000_0000_0000 << 32)
+        | (0b0001_1000_0000_0000 << 16)
+        | (0b0001_1000_0000_0000),
 ];
 
 const ROCK_HEIGHTS: [usize; ROCKS.len()] = [1, 3, 3, 4, 2];
@@ -121,12 +121,11 @@ impl Chamber {
         }
     }
 
-    #[inline(always)]
     fn maybe_move_left(&self, rock_bottom: usize, current_rock: u64) -> u64 {
-        let rows = ((self.row(rock_bottom) as u64) << 0)
-            | ((self.row(rock_bottom + 1) as u64) << 16)
-            | ((self.row(rock_bottom + 2) as u64) << 32)
-            | ((self.row(rock_bottom + 3) as u64) << 48);
+        let rows = u64::from(self.row(rock_bottom))
+            | (u64::from(self.row(rock_bottom + 1)) << 16)
+            | (u64::from(self.row(rock_bottom + 2)) << 32)
+            | (u64::from(self.row(rock_bottom + 3)) << 48);
         if (current_rock << 1) & rows == 0 {
             current_rock << 1
         } else {
@@ -134,12 +133,11 @@ impl Chamber {
         }
     }
 
-    #[inline(always)]
     fn maybe_move_right(&self, rock_bottom: usize, current_rock: u64) -> u64 {
-        let rows = ((self.row(rock_bottom) as u64) << 0)
-            | ((self.row(rock_bottom + 1) as u64) << 16)
-            | ((self.row(rock_bottom + 2) as u64) << 32)
-            | ((self.row(rock_bottom + 3) as u64) << 48);
+        let rows = u64::from(self.row(rock_bottom))
+            | (u64::from(self.row(rock_bottom + 1)) << 16)
+            | (u64::from(self.row(rock_bottom + 2)) << 32)
+            | (u64::from(self.row(rock_bottom + 3)) << 48);
         if (current_rock >> 1) & rows == 0 {
             current_rock >> 1
         } else {
@@ -164,7 +162,7 @@ impl Chamber {
                 "{}",
                 (7..16)
                     .rev()
-                    .map(|pos| if data & (1 << pos) != 0 { '#' } else { '.' })
+                    .map(|pos| if data & (1 << pos) == 0 { '.' } else { '#' })
                     .collect::<String>()
             );
         }
@@ -256,11 +254,11 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 }
                 // The new rock always spawns immediately above any non-wall collisions, so the
                 // only bits that are set will be for walls.
-                chamber_rows = 0x80ff80ff80ff80ff;
+                chamber_rows = 0x80ff_80ff_80ff_80ff;
                 continue;
             }
             State::FallJet => {
-                chamber_rows = (chamber_rows << 16) | (chamber.row(rock_bottom - 1) as u64);
+                chamber_rows = (chamber_rows << 16) | u64::from(chamber.row(rock_bottom - 1));
                 if (current_rock & chamber_rows) != 0 {
                     // rock_bottom is where rocks spawn, which is one above the actual topmost
                     // rock.

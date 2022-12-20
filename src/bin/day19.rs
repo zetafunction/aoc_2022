@@ -309,10 +309,7 @@ impl FromStr for Puzzle {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Puzzle {
-            blueprints: s
-                .lines()
-                .map(|s| s.parse())
-                .collect::<Result<Vec<_>, _>>()?,
+            blueprints: s.lines().map(str::parse).collect::<Result<Vec<_>, _>>()?,
         })
     }
 }

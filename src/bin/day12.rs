@@ -27,11 +27,11 @@ struct Puzzle {
 }
 
 impl Puzzle {
-    fn bfs(&self, start: &Point2) -> Option<usize> {
+    fn bfs(&self, start: Point2) -> Option<usize> {
         let mut candidates = VecDeque::new();
         let mut distances = HashMap::new();
-        candidates.push_back(*start);
-        distances.insert(*start, 0);
+        candidates.push_back(start);
+        distances.insert(start, 0);
         while let Some(next) = candidates.pop_front() {
             let current_height = self.map.get(&next).unwrap();
             let current_distance = *distances.get(&next).unwrap();
@@ -92,9 +92,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn part1(puzzle: &Puzzle) -> Result<usize, Oops> {
-    puzzle
-        .bfs(&puzzle.start)
-        .ok_or_else(|| oops!("no solution"))
+    puzzle.bfs(puzzle.start).ok_or_else(|| oops!("no solution"))
 }
 
 fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
@@ -102,7 +100,7 @@ fn part2(puzzle: &Puzzle) -> Result<usize, Oops> {
         .map
         .iter()
         .filter_map(|(k, v)| if *v == 0 { Some(k) } else { None })
-        .filter_map(|start| puzzle.bfs(start))
+        .filter_map(|start| puzzle.bfs(*start))
         .min()
         .ok_or_else(|| oops!("no solution"))
 }

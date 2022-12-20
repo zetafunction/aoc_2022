@@ -64,12 +64,12 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn update_position(head: &Point2, tail: &Point2) -> Point2 {
-    let delta = *head - *tail;
+fn update_position(head: Point2, tail: Point2) -> Point2 {
+    let delta = head - tail;
     if delta.x.abs() > 1 || delta.y.abs() > 1 {
-        *tail + Vector2::new(delta.x.signum(), delta.y.signum())
+        tail + Vector2::new(delta.x.signum(), delta.y.signum())
     } else {
-        *tail
+        tail
     }
 }
 
@@ -86,7 +86,7 @@ fn solve_puzzle(puzzle: &Puzzle, knot_count: usize) -> usize {
         for _ in 0..count {
             knots[0] += delta;
             for i in 0..knots.len() - 1 {
-                let new_position = update_position(&knots[i], &knots[i + 1]);
+                let new_position = update_position(knots[i], knots[i + 1]);
                 knots[i + 1] = new_position;
             }
             visited.insert(knots[knots.len() - 1]);

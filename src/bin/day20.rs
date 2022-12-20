@@ -142,7 +142,8 @@ fn part2(puzzle: &Puzzle) -> Result<i64, Oops> {
     let decrypted_values = puzzle
         .values
         .iter()
-        .map(|v| v * 811589153)
+        // Magic decryption key.
+        .map(|v| v * 811_589_153)
         .collect::<Vec<_>>();
     let mut output = decrypted_values.clone();
     let mut forward_map: Vec<_> = (0..output.len()).collect();
