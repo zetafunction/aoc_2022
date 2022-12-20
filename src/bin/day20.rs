@@ -36,9 +36,9 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn shift_forwards(
-    out: &mut Vec<i64>,
-    mapper: &mut BTreeMap<usize, usize>,
-    reverse_mapper: &mut BTreeMap<usize, usize>,
+    buffer: &mut Vec<i64>,
+    forward_map: &mut BTreeMap<usize, usize>,
+    reverse_map: &mut BTreeMap<usize, usize>,
     base: usize,
     count: usize,
 ) {
@@ -46,26 +46,25 @@ fn shift_forwards(
         let this_index = base + i;
         let next_index = base + i + 1;
 
-        out.swap(this_index, next_index);
+        buffer.swap(this_index, next_index);
 
-        let m = *reverse_mapper.get(&this_index).unwrap();
-        let n = *reverse_mapper.get(&next_index).unwrap();
+        let m = *reverse_map.get(&this_index).unwrap();
+        let n = *reverse_map.get(&next_index).unwrap();
 
-        // Finally, swap m and n.
-        let o = *mapper.get(&m).unwrap();
-        let p = *mapper.get(&n).unwrap();
+        let o = *forward_map.get(&m).unwrap();
+        let p = *forward_map.get(&n).unwrap();
 
-        reverse_mapper.insert(this_index, n);
-        reverse_mapper.insert(next_index, m);
-        mapper.insert(m, p);
-        mapper.insert(n, o);
+        reverse_map.insert(this_index, n);
+        reverse_map.insert(next_index, m);
+        forward_map.insert(m, p);
+        forward_map.insert(n, o);
     }
 }
 
 fn shift_backwards(
-    out: &mut Vec<i64>,
-    mapper: &mut BTreeMap<usize, usize>,
-    reverse_mapper: &mut BTreeMap<usize, usize>,
+    buffer: &mut Vec<i64>,
+    forward_map: &mut BTreeMap<usize, usize>,
+    reverse_map: &mut BTreeMap<usize, usize>,
     base: usize,
     count: usize,
 ) {
@@ -73,50 +72,63 @@ fn shift_backwards(
         let this_index = base - i;
         let next_index = base - i - 1;
 
-        out.swap(this_index, next_index);
+        buffer.swap(this_index, next_index);
 
-        let m = *reverse_mapper.get(&this_index).unwrap();
-        let n = *reverse_mapper.get(&next_index).unwrap();
+        let m = *reverse_map.get(&this_index).unwrap();
+        let n = *reverse_map.get(&next_index).unwrap();
 
-        // Finally, swap m and n.
-        let o = *mapper.get(&m).unwrap();
-        let p = *mapper.get(&n).unwrap();
+        let o = *forward_map.get(&m).unwrap();
+        let p = *forward_map.get(&n).unwrap();
 
-        reverse_mapper.insert(this_index, n);
-        reverse_mapper.insert(next_index, m);
-        mapper.insert(m, p);
-        mapper.insert(n, o);
+        reverse_map.insert(this_index, n);
+        reverse_map.insert(next_index, m);
+        forward_map.insert(m, p);
+        forward_map.insert(n, o);
+    }
+}
+
+fn mix(
+    original_values: &Vec<i64>,
+    mixed_values: &mut Vec<i64>,
+    forward_map: &mut BTreeMap<usize, usize>,
+    reverse_map: &mut BTreeMap<usize, usize>,
+) {
+    for (original_idx, &shift) in original_values.iter().enumerate() {
+        let current_idx = *forward_map.get(&original_idx).unwrap();
+        // Mixing an element forwards or backwards by size of buffer - 1 leaves the element in the
+        // same position it began. To avoid pointlessly shuffling the element around, just process
+        // the tail end.
+        let shift = shift % (mixed_values.len() - 1) as i64;
+        if shift > 0 {
+            let shift = shift as usize;
+            if current_idx + shift >= mixed_values.len() - 1 {
+                let shift = mixed_values.len() - shift - 1;
+                shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+            } else {
+                shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+            }
+        } else if shift < 0 {
+            let shift = shift.abs() as usize;
+            if current_idx + mixed_values.len() - shift <= mixed_values.len() {
+                let shift = mixed_values.len() - shift - 1;
+                shift_forwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+            } else {
+                shift_backwards(mixed_values, forward_map, reverse_map, current_idx, shift);
+            }
+        }
     }
 }
 
 fn part1(puzzle: &Puzzle) -> i64 {
-    let mut output = puzzle.values.iter().copied().collect::<Vec<_>>();
-    // Map of original indices to new loc mappers.
-    let mut mapper: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
-    // Reverse mappings.
-    let mut reverse_mapper: BTreeMap<usize, usize> =
-        (0..output.len()).zip(0..output.len()).collect();
-    for (i, &n) in puzzle.values.iter().enumerate() {
-        let idx = *mapper.get(&i).unwrap();
-        let n = n % (output.len() - 1) as i64;
-        if n > 0 {
-            let n = n as usize;
-            if idx + n >= output.len() - 1 {
-                let count = output.len() - n - 1;
-                shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
-            } else {
-                shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
-            }
-        } else if n < 0 {
-            let n = n.abs() as usize;
-            if idx + output.len() - n <= output.len() {
-                let count = output.len() - n - 1;
-                shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
-            } else {
-                shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
-            }
-        }
-    }
+    let mut output = puzzle.values.clone();
+    let mut forward_map: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
+    let mut reverse_map: BTreeMap<usize, usize> = forward_map.clone();
+    mix(
+        &puzzle.values,
+        &mut output,
+        &mut forward_map,
+        &mut reverse_map,
+    );
     let mut zero = None;
     for (i, v) in output.iter().enumerate() {
         if *v == 0 {
@@ -137,33 +149,15 @@ fn part2(puzzle: &Puzzle) -> i64 {
         .map(|v| v * 811589153)
         .collect::<Vec<_>>();
     let mut output = decrypted_values.clone();
-    // Map of original indices to new loc mappers.
-    let mut mapper: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
-    // Reverse mappings.
-    let mut reverse_mapper: BTreeMap<usize, usize> =
-        (0..output.len()).zip(0..output.len()).collect();
+    let mut forward_map: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
+    let mut reverse_map: BTreeMap<usize, usize> = forward_map.clone();
     for _ in 0..10 {
-        for (i, &n) in decrypted_values.iter().enumerate() {
-            let idx = *mapper.get(&i).unwrap();
-            let n = n % (output.len() - 1) as i64;
-            if n > 0 {
-                let n = n as usize;
-                if idx + n >= output.len() - 1 {
-                    let count = output.len() - n - 1;
-                    shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
-                } else {
-                    shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
-                }
-            } else if n < 0 {
-                let n = n.abs() as usize;
-                if idx + output.len() - n <= output.len() {
-                    let count = output.len() - n - 1;
-                    shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
-                } else {
-                    shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
-                }
-            }
-        }
+        mix(
+            &decrypted_values,
+            &mut output,
+            &mut forward_map,
+            &mut reverse_map,
+        );
     }
     let mut zero = None;
     for (i, v) in output.iter().enumerate() {
