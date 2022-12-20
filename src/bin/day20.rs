@@ -14,12 +14,11 @@
 
 use aoc_2022::{oops, oops::Oops};
 use std::collections::BTreeMap;
-use std::collections::VecDeque;
 use std::io::{self, Read};
 use std::str::FromStr;
 
 struct Puzzle {
-    values: Vec<i32>,
+    values: Vec<i64>,
 }
 
 impl FromStr for Puzzle {
@@ -37,7 +36,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 }
 
 fn shift_forwards(
-    out: &mut VecDeque<i32>,
+    out: &mut Vec<i64>,
     mapper: &mut BTreeMap<usize, usize>,
     reverse_mapper: &mut BTreeMap<usize, usize>,
     idx: usize,
@@ -67,7 +66,7 @@ fn shift_forwards(
 }
 
 fn shift_backwards(
-    out: &mut VecDeque<i32>,
+    out: &mut Vec<i64>,
     mapper: &mut BTreeMap<usize, usize>,
     reverse_mapper: &mut BTreeMap<usize, usize>,
     idx: usize,
@@ -96,8 +95,8 @@ fn shift_backwards(
     }
 }
 
-fn part1(puzzle: &Puzzle) -> i32 {
-    let mut output = puzzle.values.iter().copied().collect::<VecDeque<_>>();
+fn part1(puzzle: &Puzzle) -> i64 {
+    let mut output = puzzle.values.iter().copied().collect::<Vec<_>>();
     // Map of original indices to new loc mappers.
     let mut mapper: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
     // Reverse mappings.
@@ -105,7 +104,7 @@ fn part1(puzzle: &Puzzle) -> i32 {
         (0..output.len()).zip(0..output.len()).collect();
     for (i, &n) in puzzle.values.iter().enumerate() {
         let idx = *mapper.get(&i).unwrap();
-        let n = n % (output.len() - 1) as i32;
+        let n = n % (output.len() - 1) as i64;
         if n > 0 {
             let n = n as usize;
             if idx + n >= output.len() - 1 {
@@ -123,7 +122,6 @@ fn part1(puzzle: &Puzzle) -> i32 {
                 shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
             }
         }
-        // println!("{output:?}");
     }
     let mut zero = None;
     for (i, v) in output.iter().enumerate() {
@@ -138,8 +136,52 @@ fn part1(puzzle: &Puzzle) -> i32 {
         + output[(zero + 3000) % output.len()]
 }
 
-fn part2(puzzle: &Puzzle) -> i32 {
-    *puzzle.values.iter().max().unwrap()
+fn part2(puzzle: &Puzzle) -> i64 {
+    let decrypted_values = puzzle
+        .values
+        .iter()
+        .map(|v| v * 811589153)
+        .collect::<Vec<_>>();
+    let mut output = decrypted_values.clone();
+    // Map of original indices to new loc mappers.
+    let mut mapper: BTreeMap<usize, usize> = (0..output.len()).zip(0..output.len()).collect();
+    // Reverse mappings.
+    let mut reverse_mapper: BTreeMap<usize, usize> =
+        (0..output.len()).zip(0..output.len()).collect();
+    for _ in 0..10 {
+        for (i, &n) in decrypted_values.iter().enumerate() {
+            let idx = *mapper.get(&i).unwrap();
+            let n = n % (output.len() - 1) as i64;
+            if n > 0 {
+                let n = n as usize;
+                if idx + n >= output.len() - 1 {
+                    let count = output.len() - n - 1;
+                    shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
+                } else {
+                    shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
+                }
+            } else if n < 0 {
+                let n = n.abs() as usize;
+                if idx + output.len() - n <= output.len() {
+                    let count = output.len() - n - 1;
+                    shift_forwards(&mut output, &mut mapper, &mut reverse_mapper, idx, count);
+                } else {
+                    shift_backwards(&mut output, &mut mapper, &mut reverse_mapper, idx, n);
+                }
+            }
+        }
+    }
+    let mut zero = None;
+    for (i, v) in output.iter().enumerate() {
+        if *v == 0 {
+            zero = Some(i);
+            break;
+        }
+    }
+    let zero = zero.unwrap();
+    output[(zero + 1000) % output.len()]
+        + output[(zero + 2000) % output.len()]
+        + output[(zero + 3000) % output.len()]
 }
 
 fn main() -> Result<(), Oops> {
@@ -168,6 +210,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(0, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(1623178306, part2(&parse(SAMPLE).unwrap()));
     }
 }
