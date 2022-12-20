@@ -39,13 +39,13 @@ fn shift_forwards(
     out: &mut Vec<i64>,
     mapper: &mut BTreeMap<usize, usize>,
     reverse_mapper: &mut BTreeMap<usize, usize>,
-    idx: usize,
+    base: usize,
     count: usize,
 ) {
-    let mut this_index = idx;
-    let mut next_index = idx + 1;
+    for i in 0..count {
+        let this_index = base + i;
+        let next_index = base + i + 1;
 
-    for _ in 0..count {
         out.swap(this_index, next_index);
 
         let m = *reverse_mapper.get(&this_index).unwrap();
@@ -59,9 +59,6 @@ fn shift_forwards(
         reverse_mapper.insert(next_index, m);
         mapper.insert(m, p);
         mapper.insert(n, o);
-
-        this_index += 1;
-        next_index += 1;
     }
 }
 
@@ -69,13 +66,13 @@ fn shift_backwards(
     out: &mut Vec<i64>,
     mapper: &mut BTreeMap<usize, usize>,
     reverse_mapper: &mut BTreeMap<usize, usize>,
-    idx: usize,
+    base: usize,
     count: usize,
 ) {
-    let mut this_index = idx;
-    let mut next_index = idx - 1;
+    for i in 0..count {
+        let this_index = base - i;
+        let next_index = base - i - 1;
 
-    for _ in 0..count {
         out.swap(this_index, next_index);
 
         let m = *reverse_mapper.get(&this_index).unwrap();
@@ -89,9 +86,6 @@ fn shift_backwards(
         reverse_mapper.insert(next_index, m);
         mapper.insert(m, p);
         mapper.insert(n, o);
-
-        this_index -= 1;
-        next_index -= 1;
     }
 }
 
