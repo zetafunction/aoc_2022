@@ -105,12 +105,9 @@ fn determine_outcome_score(x: Outcome) -> u32 {
 fn determine_shape_from_outcome(x: &ParsedLine) -> HandShape {
     match (x.opponent_shape, x.outcome) {
         (x, Outcome::Draw) => x,
-        (HandShape::Rock, Outcome::Win) => HandShape::Paper,
-        (HandShape::Paper, Outcome::Win) => HandShape::Scissors,
-        (HandShape::Scissors, Outcome::Win) => HandShape::Rock,
-        (HandShape::Rock, Outcome::Loss) => HandShape::Scissors,
-        (HandShape::Paper, Outcome::Loss) => HandShape::Rock,
-        (HandShape::Scissors, Outcome::Loss) => HandShape::Paper,
+        (HandShape::Rock, Outcome::Win) | (HandShape::Scissors, Outcome::Loss) => HandShape::Paper,
+        (HandShape::Paper, Outcome::Win) | (HandShape::Rock, Outcome::Loss) => HandShape::Scissors,
+        (HandShape::Scissors, Outcome::Win) | (HandShape::Paper, Outcome::Loss) => HandShape::Rock,
     }
 }
 
