@@ -137,37 +137,34 @@ impl Puzzle {
         if node == "humn" {
             return Ok(Expr::new_human());
         }
-        Ok(
-            match self
-                .tree
-                .get(node)
-                .ok_or_else(|| oops!("no monkey {node}"))?
-            {
-                Monkey::Literal(n) => Expr::new_literal(*n),
-                Monkey::Add(x, y) => Self::simplify(Expr::new_add(
-                    self.symbolic_eval(x)?,
-                    self.symbolic_eval(y)?,
-                )),
-                Monkey::Sub(x, y) => Self::simplify(Expr::new_sub(
-                    self.symbolic_eval(x)?,
-                    self.symbolic_eval(y)?,
-                )),
-                Monkey::Mul(x, y) => Self::simplify(Expr::new_mul(
-                    self.symbolic_eval(x)?,
-                    self.symbolic_eval(y)?,
-                )),
-                Monkey::Div(x, y) => Self::simplify(Expr::new_div(
-                    self.symbolic_eval(x)?,
-                    self.symbolic_eval(y)?,
-                )),
-            },
-        )
+        match self
+            .tree
+            .get(node)
+            .ok_or_else(|| oops!("no monkey {node}"))?
+        {
+            Monkey::Literal(n) => Ok(Expr::new_literal(*n)),
+            Monkey::Add(x, y) => Ok(Self::simplify(Expr::new_add(
+                self.symbolic_eval(x)?,
+                self.symbolic_eval(y)?,
+            ))),
+            Monkey::Sub(x, y) => Ok(Self::simplify(Expr::new_sub(
+                self.symbolic_eval(x)?,
+                self.symbolic_eval(y)?,
+            ))),
+            Monkey::Mul(x, y) => Ok(Self::simplify(Expr::new_mul(
+                self.symbolic_eval(x)?,
+                self.symbolic_eval(y)?,
+            ))),
+            Monkey::Div(x, y) => Ok(Self::simplify(Expr::new_div(
+                self.symbolic_eval(x)?,
+                self.symbolic_eval(y)?,
+            ))),
+        }
     }
 
     fn simplify(e: Expr) -> Expr {
         match e {
-            Expr::Literal(_) => e,
-            Expr::Human => e,
+            Expr::Human | Expr::Literal(_) => e,
             Expr::BinaryOp(x, op, y) => match (&*x, &*y) {
                 (Expr::Literal(x), Expr::Literal(y)) => Expr::new_literal(match op {
                     Op::Add => x + y,
@@ -210,11 +207,8 @@ fn part1(puzzle: &Puzzle) -> Result<i64, Oops> {
 fn part2(puzzle: &Puzzle) -> Result<i64, Oops> {
     let root = puzzle.tree.get("root").ok_or_else(|| oops!("no root"))?;
     let (lhs, rhs) = match root {
-        Monkey::Add(x, y) => (x, y),
-        Monkey::Sub(x, y) => (x, y),
-        Monkey::Mul(x, y) => (x, y),
-        Monkey::Div(x, y) => (x, y),
-        _ => Err(oops!("root monkey not a binary operation"))?,
+        Monkey::Add(x, y) | Monkey::Sub(x, y) | Monkey::Mul(x, y) | Monkey::Div(x, y) => (x, y),
+        Monkey::Literal(_) => Err(oops!("root monkey not a binary operation"))?,
     };
 
     let (lhs, rhs) = (puzzle.symbolic_eval(lhs)?, puzzle.symbolic_eval(rhs)?);
