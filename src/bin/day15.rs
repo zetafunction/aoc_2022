@@ -100,7 +100,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     r
 }
 
-fn part1(puzzle: &Puzzle, y: i64) -> usize {
+fn part1(puzzle: &Puzzle, y: i64) -> i64 {
     // Given a fixed `y`, find the min `x` and max `x` that can possibly be covered by a sensor.
     let (min_x, max_x) = puzzle.sensors.iter().fold((i64::MAX, i64::MIN), |a, s| {
         let leftover = (s.loc.1 - y).abs();
@@ -127,15 +127,15 @@ fn part1(puzzle: &Puzzle, y: i64) -> usize {
     }
     c -= puzzle.sensors.iter().filter(|s| s.loc.1 == y).count() as i64;
     c -= puzzle.beacons.iter().filter(|b| b.1 == y).count() as i64;
-    c as usize
+    c
 }
 
-fn part2(puzzle: &Puzzle, (max_x, max_y): (i64, i64)) -> Result<usize, Oops> {
+fn part2(puzzle: &Puzzle, (max_x, max_y): (i64, i64)) -> Result<i64, Oops> {
     let mut x = 0;
     for y in 0..=max_y {
         while x <= max_x {
             let Some((sensor, skip)) = puzzle.get_max_skip_sensor(&(x, y)) else {
-                return Ok((x * 4_000_000 + y) as usize);
+                return Ok(x * 4_000_000 + y);
             };
             x = sensor.loc.0 + skip + 1;
         }
