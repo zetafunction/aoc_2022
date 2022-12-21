@@ -17,24 +17,20 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::str::FromStr;
 
-enum Op {
+enum Monkey {
+    Literal(i64),
     Add(String, String),
     Sub(String, String),
     Mul(String, String),
     Div(String, String),
 }
 
-enum Expr {
-    Literal(i64),
-    Operation(Op),
-}
-
-impl FromStr for Expr {
+impl FromStr for Monkey {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(n) = s.parse::<i64>() {
-            return Ok(Expr::Literal(n));
+            return Ok(Monkey::Literal(n));
         }
         let mut parser = s.split_whitespace();
         let first_operand = parser
@@ -46,155 +42,141 @@ impl FromStr for Expr {
             .next()
             .ok_or_else(|| oops!("bad expression: {s}"))?
             .to_string();
-        Ok(Expr::Operation(match op {
-            "+" => Op::Add(first_operand, second_operand),
-            "-" => Op::Sub(first_operand, second_operand),
-            "*" => Op::Mul(first_operand, second_operand),
-            "/" => Op::Div(first_operand, second_operand),
+        Ok(match op {
+            "+" => Monkey::Add(first_operand, second_operand),
+            "-" => Monkey::Sub(first_operand, second_operand),
+            "*" => Monkey::Mul(first_operand, second_operand),
+            "/" => Monkey::Div(first_operand, second_operand),
             _ => Err(oops!("bad operand {op}"))?,
-        }))
+        })
     }
 }
+
 struct Puzzle {
-    tree: HashMap<String, Expr>,
+    tree: HashMap<String, Monkey>,
 }
 
-enum Sym {
+#[derive(Debug)]
+enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+#[derive(Debug)]
+enum Expr {
     Human,
     Literal(i64),
-    Add(Box<Sym>, Box<Sym>),
-    Sub(Box<Sym>, Box<Sym>),
-    Mul(Box<Sym>, Box<Sym>),
-    Div(Box<Sym>, Box<Sym>),
+    BinaryOp(Box<Expr>, Op, Box<Expr>),
 }
 
-impl Sym {
-    fn evaluate(&self) -> Option<i64> {
-        match self {
-            Sym::Human => None,
-            Sym::Literal(n) => Some(*n),
-            Sym::Add(x, y) => Some(x.evaluate()? + y.evaluate()?),
-            Sym::Sub(x, y) => Some(x.evaluate()? - y.evaluate()?),
-            Sym::Mul(x, y) => Some(x.evaluate()? * y.evaluate()?),
-            Sym::Div(x, y) => Some(x.evaluate()? / y.evaluate()?),
-        }
+impl Expr {
+    fn new_human() -> Self {
+        Expr::Human
     }
-
-    fn simplify(&self) -> Sym {
-        match self {
-            Sym::Literal(n) => Sym::Literal(*n),
-            Sym::Human => Sym::Human,
-            Sym::Add(x, y) => {
-                let x = x.simplify();
-                let y = y.simplify();
-                match (&x, &y) {
-                    (Sym::Literal(x), Sym::Literal(y)) => Sym::Literal(x + y),
-                    _ => Sym::Add(Box::new(x), Box::new(y)),
-                }
-            }
-            Sym::Sub(x, y) => {
-                let x = x.simplify();
-                let y = y.simplify();
-                match (&x, &y) {
-                    (Sym::Literal(x), Sym::Literal(y)) => Sym::Literal(x - y),
-                    _ => Sym::Sub(Box::new(x), Box::new(y)),
-                }
-            }
-            Sym::Mul(x, y) => {
-                let x = x.simplify();
-                let y = y.simplify();
-                match (&x, &y) {
-                    (Sym::Literal(x), Sym::Literal(y)) => Sym::Literal(x * y),
-                    _ => Sym::Mul(Box::new(x), Box::new(y)),
-                }
-            }
-            Sym::Div(x, y) => {
-                let x = x.simplify();
-                let y = y.simplify();
-                match (&x, &y) {
-                    (Sym::Literal(x), Sym::Literal(y)) => Sym::Literal(x / y),
-                    _ => Sym::Div(Box::new(x), Box::new(y)),
-                }
-            }
-        }
+    fn new_literal(c: i64) -> Self {
+        Expr::Literal(c)
     }
+    fn new_add(x: Expr, y: Expr) -> Self {
+        Expr::BinaryOp(Box::new(x), Op::Add, Box::new(y))
+    }
+    fn new_sub(x: Expr, y: Expr) -> Self {
+        Expr::BinaryOp(Box::new(x), Op::Sub, Box::new(y))
+    }
+    fn new_mul(x: Expr, y: Expr) -> Self {
+        Expr::BinaryOp(Box::new(x), Op::Mul, Box::new(y))
+    }
+    fn new_div(x: Expr, y: Expr) -> Self {
+        Expr::BinaryOp(Box::new(x), Op::Div, Box::new(y))
+    }
+}
 
-    fn solve_for(&self, target: i64) -> i64 {
+impl Expr {
+    fn solve_for(&self, target: i64) -> Result<i64, Oops> {
         match self {
-            Sym::Human => target,
-            Sym::Add(x, y) => match (&**x, &**y) {
-                (Sym::Literal(x), y) => y.solve_for(target - x),
-                (x, Sym::Literal(y)) => x.solve_for(target - y),
-                _ => panic!(),
+            Expr::Human => Ok(target),
+            Expr::Literal(_) => Err(oops!("solving for literal makes no sense"))?,
+            Expr::BinaryOp(x, op, y) => match (&**x, &**y) {
+                (Expr::Literal(known), unknown) => match op {
+                    Op::Add => unknown.solve_for(target - known),
+                    Op::Sub => unknown.solve_for(known - target),
+                    Op::Mul => unknown.solve_for(target / known),
+                    Op::Div => unknown.solve_for(known / target),
+                },
+                (unknown, Expr::Literal(known)) => match op {
+                    Op::Add => unknown.solve_for(target - known),
+                    Op::Sub => unknown.solve_for(known + target),
+                    Op::Mul => unknown.solve_for(target / known),
+                    Op::Div => unknown.solve_for(known * target),
+                },
+                _ => Err(oops!("cannot solve for two unknowns"))?,
             },
-            Sym::Sub(x, y) => match (&**x, &**y) {
-                (Sym::Literal(x), y) => y.solve_for(x - target),
-                (x, Sym::Literal(y)) => x.solve_for(y + target),
-                _ => panic!(),
-            },
-            Sym::Mul(x, y) => match (&**x, &**y) {
-                (Sym::Literal(x), y) => y.solve_for(target / x),
-                (x, Sym::Literal(y)) => x.solve_for(target / y),
-                _ => panic!(),
-            },
-            Sym::Div(x, y) => match (&**x, &**y) {
-                (Sym::Literal(x), y) => y.solve_for(x / target),
-                (x, Sym::Literal(y)) => x.solve_for(y * target),
-                _ => panic!(),
-            },
-            _ => panic!(),
         }
     }
 }
 
 impl Puzzle {
-    fn eval(&self, node: &str) -> i64 {
-        match self.tree.get(node).unwrap() {
-            Expr::Literal(n) => *n,
-            Expr::Operation(op) => match op {
-                Op::Add(x, y) => self.eval(x) + self.eval(y),
-                Op::Sub(x, y) => self.eval(x) - self.eval(y),
-                Op::Mul(x, y) => self.eval(x) * self.eval(y),
-                Op::Div(x, y) => self.eval(x) / self.eval(y),
+    fn eval(&self, node: &str) -> Result<i64, Oops> {
+        Ok(
+            match self
+                .tree
+                .get(node)
+                .ok_or_else(|| oops!("no monkey {node}"))?
+            {
+                Monkey::Literal(c) => *c,
+                Monkey::Add(x, y) => self.eval(x)? + self.eval(y)?,
+                Monkey::Sub(x, y) => self.eval(x)? - self.eval(y)?,
+                Monkey::Mul(x, y) => self.eval(x)? * self.eval(y)?,
+                Monkey::Div(x, y) => self.eval(x)? / self.eval(y)?,
             },
-        }
+        )
     }
 
-    fn eval2(&self, node: &str) -> i64 {
-        let (expr1, expr2) = match self.tree.get(node).unwrap() {
-            Expr::Operation(op) => match op {
-                Op::Add(x, y) => (self.eval3(x), self.eval3(y)),
-                Op::Sub(x, y) => (self.eval3(x), self.eval3(y)),
-                Op::Mul(x, y) => (self.eval3(x), self.eval3(y)),
-                Op::Div(x, y) => (self.eval3(x), self.eval3(y)),
-            },
-            _ => panic!(),
-        };
-
-        if let Some(result) = expr1.evaluate() {
-            let simplified = expr2.simplify();
-            simplified.solve_for(result)
-        } else if let Some(result) = expr2.evaluate() {
-            let simplified = expr1.simplify();
-            simplified.solve_for(result)
-        } else {
-            panic!()
-        }
-    }
-
-    fn eval3(&self, node: &str) -> Sym {
+    fn symbolic_eval(&self, node: &str) -> Result<Expr, Oops> {
         if node == "humn" {
-            Sym::Human
-        } else {
-            match self.tree.get(node).unwrap() {
-                Expr::Literal(n) => Sym::Literal(*n),
-                Expr::Operation(op) => match op {
-                    Op::Add(x, y) => Sym::Add(Box::new(self.eval3(x)), Box::new(self.eval3(y))),
-                    Op::Sub(x, y) => Sym::Sub(Box::new(self.eval3(x)), Box::new(self.eval3(y))),
-                    Op::Mul(x, y) => Sym::Mul(Box::new(self.eval3(x)), Box::new(self.eval3(y))),
-                    Op::Div(x, y) => Sym::Div(Box::new(self.eval3(x)), Box::new(self.eval3(y))),
-                },
-            }
+            return Ok(Expr::new_human());
+        }
+        Ok(
+            match self
+                .tree
+                .get(node)
+                .ok_or_else(|| oops!("no monkey {node}"))?
+            {
+                Monkey::Literal(n) => Expr::new_literal(*n),
+                Monkey::Add(x, y) => Self::simplify(Expr::new_add(
+                    self.symbolic_eval(x)?,
+                    self.symbolic_eval(y)?,
+                )),
+                Monkey::Sub(x, y) => Self::simplify(Expr::new_sub(
+                    self.symbolic_eval(x)?,
+                    self.symbolic_eval(y)?,
+                )),
+                Monkey::Mul(x, y) => Self::simplify(Expr::new_mul(
+                    self.symbolic_eval(x)?,
+                    self.symbolic_eval(y)?,
+                )),
+                Monkey::Div(x, y) => Self::simplify(Expr::new_div(
+                    self.symbolic_eval(x)?,
+                    self.symbolic_eval(y)?,
+                )),
+            },
+        )
+    }
+
+    fn simplify(e: Expr) -> Expr {
+        match e {
+            Expr::Literal(_) => e,
+            Expr::Human => e,
+            Expr::BinaryOp(x, op, y) => match (&*x, &*y) {
+                (Expr::Literal(x), Expr::Literal(y)) => Expr::new_literal(match op {
+                    Op::Add => x + y,
+                    Op::Sub => x - y,
+                    Op::Mul => x * y,
+                    Op::Div => x / y,
+                }),
+                _ => Expr::BinaryOp(x, op, y),
+            },
         }
     }
 }
@@ -221,12 +203,28 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> i64 {
+fn part1(puzzle: &Puzzle) -> Result<i64, Oops> {
     puzzle.eval("root")
 }
 
-fn part2(puzzle: &Puzzle) -> i64 {
-    puzzle.eval2("root")
+fn part2(puzzle: &Puzzle) -> Result<i64, Oops> {
+    let root = puzzle.tree.get("root").ok_or_else(|| oops!("no root"))?;
+    let (lhs, rhs) = match root {
+        Monkey::Add(x, y) => (x, y),
+        Monkey::Sub(x, y) => (x, y),
+        Monkey::Mul(x, y) => (x, y),
+        Monkey::Div(x, y) => (x, y),
+        _ => Err(oops!("root monkey not a binary operation"))?,
+    };
+
+    let (lhs, rhs) = (puzzle.symbolic_eval(lhs)?, puzzle.symbolic_eval(rhs)?);
+
+    match (&lhs, &rhs) {
+        (Expr::Literal(known), unknown) | (unknown, Expr::Literal(known)) => {
+            unknown.solve_for(*known)
+        }
+        _ => Err(oops!("unexpected symbolic_eval result: {lhs:?} vs {rhs:?}"))?,
+    }
 }
 
 fn main() -> Result<(), Oops> {
@@ -236,8 +234,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle));
-    println!("{}", part2(&puzzle));
+    println!("{}", part1(&puzzle)?);
+    println!("{}", part2(&puzzle)?);
 
     Ok(())
 }
@@ -266,11 +264,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        assert_eq!(152, part1(&parse(SAMPLE).unwrap()));
+        assert_eq!(152, part1(&parse(SAMPLE).unwrap()).unwrap());
     }
 
     #[test]
     fn example2() {
-        assert_eq!(301, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(301, part2(&parse(SAMPLE).unwrap()).unwrap());
     }
 }
