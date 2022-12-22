@@ -14,14 +14,13 @@
 
 use aoc_2022::geometry::Point2;
 use aoc_2022::{oops, oops::Oops};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Read};
 use std::str::FromStr;
 
 enum Tile {
     Wall,
     Open,
-    Nothing,
 }
 
 enum Move {
@@ -49,13 +48,13 @@ impl Puzzle {
         match self.map.get(&candidate) {
             Some(Tile::Open) => return Some(candidate),
             Some(Tile::Wall) => return None,
-            Some(Tile::Nothing) | None => match d {
+            None => match d {
                 Direction::North => {
                     for y in (1..=self.max_y).rev() {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
-                            Some(Tile::Nothing) | None => continue,
+                            None => continue,
                         }
                     }
                 }
@@ -64,7 +63,7 @@ impl Puzzle {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
-                            Some(Tile::Nothing) | None => continue,
+                            None => continue,
                         }
                     }
                 }
@@ -73,7 +72,7 @@ impl Puzzle {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
-                            Some(Tile::Nothing) | None => continue,
+                            None => continue,
                         }
                     }
                 }
@@ -82,7 +81,7 @@ impl Puzzle {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
-                            Some(Tile::Nothing) | None => continue,
+                            None => continue,
                         }
                     }
                 }
@@ -204,7 +203,6 @@ fn print(puzzle: &Puzzle, current_pos: Point2, d: Direction) {
                         match tile {
                             Tile::Wall => '#',
                             Tile::Open => '.',
-                            Tile::Nothing => ' ',
                         }
                     } else {
                         ' '
@@ -259,6 +257,31 @@ fn part1(puzzle: &Puzzle) -> i32 {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
+    println!("{} {}", puzzle.max_x, puzzle.max_y);
+    let mut connections = HashSet::new();
+    let step;
+    if puzzle.max_x > puzzle.max_y {
+        step = puzzle.max_x / 4;
+        for y in 0..3 {
+            for x in 0..4 {
+                let p = Point2::new(x * step + 1, y * step + 1);
+                if let Some(_) = puzzle.map.get(&p) {
+                    connections.insert(Point2::new(x, y));
+                }
+            }
+        }
+    } else {
+        step = puzzle.max_x / 3;
+        for y in 0..4 {
+            for x in 0..3 {
+                let p = Point2::new(x * step + 1, y * step + 1);
+                if let Some(_) = puzzle.map.get(&p) {
+                    connections.insert(Point2::new(x, y));
+                }
+            }
+        }
+    }
+    println!("{connections:?}");
     0
 }
 
