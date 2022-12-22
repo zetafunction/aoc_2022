@@ -121,30 +121,6 @@ impl Chamber {
         }
     }
 
-    fn maybe_move_left(&self, rock_bottom: usize, current_rock: u64) -> u64 {
-        let rows = u64::from(self.row(rock_bottom))
-            | (u64::from(self.row(rock_bottom + 1)) << 16)
-            | (u64::from(self.row(rock_bottom + 2)) << 32)
-            | (u64::from(self.row(rock_bottom + 3)) << 48);
-        if (current_rock << 1) & rows == 0 {
-            current_rock << 1
-        } else {
-            current_rock
-        }
-    }
-
-    fn maybe_move_right(&self, rock_bottom: usize, current_rock: u64) -> u64 {
-        let rows = u64::from(self.row(rock_bottom))
-            | (u64::from(self.row(rock_bottom + 1)) << 16)
-            | (u64::from(self.row(rock_bottom + 2)) << 32)
-            | (u64::from(self.row(rock_bottom + 3)) << 48);
-        if (current_rock >> 1) & rows == 0 {
-            current_rock >> 1
-        } else {
-            current_rock
-        }
-    }
-
     fn row(&self, n: usize) -> Row {
         self.data[n % GRID_ROWS]
     }
@@ -180,7 +156,7 @@ fn rock_and_jets_to_index(rock_count: usize, jet1: Jet, jet2: Jet, jet3: Jet, je
 // Entries are indexed by `rock_and_jets_to_index()`.
 fn build_new_rock_lookup_table() -> Vec<u64> {
     let mut table = vec![0; ROCKS.len() * 16];
-    let chamber = Chamber::new();
+    let walls_bitmask: u64 = 0x80ff_80ff_80ff_80ff;
     for i in 0..ROCKS.len() {
         for j1 in &[Jet::Left, Jet::Right] {
             for j2 in &[Jet::Left, Jet::Right] {
@@ -190,10 +166,13 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
                         // For some inexplicable reason, iterating over &[] instead of [] affects overall
                         // throughput...
                         for j in &[j1, j2, j3, j4] {
-                            rock = match j {
-                                Jet::Left => chamber.maybe_move_left(8, rock),
-                                Jet::Right => chamber.maybe_move_right(8, rock),
+                            let next_rock = match j {
+                                Jet::Left => rock << 1,
+                                Jet::Right => rock >> 1,
                             };
+                            if next_rock & walls_bitmask == 0 {
+                                rock = next_rock;
+                            }
                         }
                         table[rock_and_jets_to_index(i, *j1, *j2, *j3, *j4)] = rock;
                     }
