@@ -51,7 +51,7 @@ impl Puzzle {
             Some(Tile::Wall) => return None,
             Some(Tile::Nothing) | None => match d {
                 Direction::North => {
-                    for y in (0..=self.max_y).rev() {
+                    for y in (1..=self.max_y).rev() {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
@@ -60,7 +60,7 @@ impl Puzzle {
                     }
                 }
                 Direction::East => {
-                    for x in 0.. {
+                    for x in 1.. {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
@@ -69,7 +69,7 @@ impl Puzzle {
                     }
                 }
                 Direction::South => {
-                    for y in 0.. {
+                    for y in 1.. {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
@@ -78,7 +78,7 @@ impl Puzzle {
                     }
                 }
                 Direction::West => {
-                    for x in (0..=self.max_x).rev() {
+                    for x in (1..=self.max_x).rev() {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
@@ -106,6 +106,7 @@ fn parse_moves(s: &str) -> Vec<Move> {
             if let Some(n) = n {
                 moves.push(Move::Ahead(n));
             }
+            n = None;
             match c {
                 'L' => {
                     moves.push(Move::Left);
@@ -128,8 +129,8 @@ impl FromStr for Puzzle {
         let (map_str, moves_str) = s
             .split_once("\n\n")
             .ok_or_else(|| oops!("invalid format"))?;
-        for (y, line) in map_str.lines().enumerate() {
-            for (x, c) in line.chars().enumerate() {
+        for (y, line) in (1..).zip(map_str.lines()) {
+            for (x, c) in (1..).zip(line.chars()) {
                 match c {
                     '#' => {
                         map.insert(Point2::new(x as i32, y as i32), Tile::Wall);
@@ -157,7 +158,7 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Direction {
     North,
     East,
@@ -183,11 +184,42 @@ fn turn_right(d: Direction) -> Direction {
     }
 }
 
+fn print(puzzle: &Puzzle, current_pos: Point2, d: Direction) {
+    println!("Current state:");
+    for y in 1..puzzle.max_y {
+        println!(
+            "{}",
+            (1..puzzle.max_x)
+                .map(|x| {
+                    let p = Point2::new(x, y);
+                    if p == current_pos {
+                        return match d {
+                            Direction::North => '^',
+                            Direction::East => '>',
+                            Direction::South => 'v',
+                            Direction::West => '<',
+                        };
+                    }
+                    if let Some(tile) = puzzle.map.get(&p) {
+                        match tile {
+                            Tile::Wall => '#',
+                            Tile::Open => '.',
+                            Tile::Nothing => ' ',
+                        }
+                    } else {
+                        ' '
+                    }
+                })
+                .collect::<String>()
+        );
+    }
+}
+
 fn part1(puzzle: &Puzzle) -> i32 {
     // Find the starting point.
     let mut current_pos = Point2::new(0, 0);
-    for x in 0.. {
-        let p = Point2::new(x, 0);
+    for x in 1.. {
+        let p = Point2::new(x, 1);
         if let Some(tile) = puzzle.map.get(&p) {
             match tile {
                 Tile::Open => {
