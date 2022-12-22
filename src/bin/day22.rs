@@ -34,9 +34,203 @@ struct Puzzle {
     moves: Vec<Move>,
     max_x: i32,
     max_y: i32,
+    step: i32,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LocalPoint2 {
+    p: Point2,
+    square_x: i32,
+    square_y: i32,
+}
+
+impl LocalPoint2 {
+    fn square(&self) -> i32 {
+        self.square_y * 3 + self.square_x
+    }
 }
 
 impl Puzzle {
+    fn global_to_local(&self, g: Point2) -> LocalPoint2 {
+        let square_x = (g.x - 1) / self.step;
+        let square_y = (g.y - 1) / self.step;
+        LocalPoint2 {
+            p: Point2::new((g.x - 1) % self.step + 1, (g.y - 1) % self.step + 1),
+            square_x,
+            square_y,
+        }
+    }
+
+    fn local_to_global(&self, l: LocalPoint2) -> Point2 {
+        Point2::new(
+            l.square_x * self.step + l.p.x,
+            l.square_y * self.step + l.p.y,
+        )
+    }
+
+    fn get_next2(&self, p: Point2, d: Direction) -> Option<(Point2, Direction)> {
+        let candidate = match d {
+            Direction::North => Point2::new(p.x, p.y - 1),
+            Direction::East => Point2::new(p.x + 1, p.y),
+            Direction::South => Point2::new(p.x, p.y + 1),
+            Direction::West => Point2::new(p.x - 1, p.y),
+        };
+
+        match self.map.get(&candidate) {
+            Some(Tile::Open) => return Some((candidate, d)),
+            Some(Tile::Wall) => return None,
+            None => {
+                let local = self.global_to_local(p);
+                let (new_local, new_direction) = match d {
+                    Direction::North => match local.square() {
+                        1 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 0,
+                                square_y: 3,
+                            };
+                            let direction = Direction::East;
+                            (new_local, direction)
+                        }
+                        2 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 0,
+                                square_y: 3,
+                            };
+                            let direction = Direction::North;
+                            (new_local, direction)
+                        }
+                        6 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 1,
+                                square_y: 1,
+                            };
+                            let direction = Direction::East;
+                            (new_local, direction)
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::East => match local.square() {
+                        2 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 1,
+                                square_y: 2,
+                            };
+                            let direction = Direction::West;
+                            (new_local, direction)
+                        }
+                        4 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 2,
+                                square_y: 0,
+                            };
+                            let direction = Direction::North;
+                            (new_local, direction)
+                        }
+                        7 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 2,
+                                square_y: 0,
+                            };
+                            let direction = Direction::West;
+                            (new_local, direction)
+                        }
+                        9 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 1,
+                                square_y: 2,
+                            };
+                            let direction = Direction::North;
+                            (new_local, direction)
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::South => match local.square() {
+                        2 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 1,
+                                square_y: 1,
+                            };
+                            let direction = Direction::West;
+                            (new_local, direction)
+                        }
+                        7 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 0,
+                                square_y: 3,
+                            };
+                            let direction = Direction::West;
+                            (new_local, direction)
+                        }
+                        9 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 2,
+                                square_y: 0,
+                            };
+                            let direction = Direction::South;
+                            (new_local, direction)
+                        }
+                        _ => panic!(),
+                    },
+                    Direction::West => match local.square() {
+                        1 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 0,
+                                square_y: 2,
+                            };
+                            let direction = Direction::East;
+                            (new_local, direction)
+                        }
+                        4 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 0,
+                                square_y: 2,
+                            };
+                            let direction = Direction::South;
+                            (new_local, direction)
+                        }
+                        6 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                square_x: 1,
+                                square_y: 0,
+                            };
+                            let direction = Direction::East;
+                            (new_local, direction)
+                        }
+                        9 => {
+                            let new_local = LocalPoint2 {
+                                p: Point2::new(local.p.y, local.p.x),
+                                square_x: 1,
+                                square_y: 0,
+                            };
+                            let direction = Direction::South;
+                            (new_local, direction)
+                        }
+                        _ => panic!(),
+                    },
+                };
+                let new_global = self.local_to_global(new_local);
+                match self.map.get(&new_global) {
+                    None => panic!(),
+                    Some(Tile::Open) => return Some((new_global, new_direction)),
+                    _ => return None,
+                }
+            }
+        }
+    }
+
     fn get_next(&self, p: Point2, d: Direction) -> Option<Point2> {
         let candidate = match d {
             Direction::North => Point2::new(p.x, p.y - 1),
@@ -87,7 +281,6 @@ impl Puzzle {
                 }
             },
         }
-
         None
     }
 }
@@ -144,11 +337,13 @@ impl FromStr for Puzzle {
         let max_x = map.keys().map(|p| p.x).max().unwrap();
         let max_y = map.keys().map(|p| p.y).max().unwrap();
         let moves = parse_moves(moves_str);
+        let step = if max_x > max_y { max_x / 4 } else { max_y / 4 };
         Ok(Puzzle {
             map,
             moves,
             max_x,
             max_y,
+            step,
         })
     }
 }
@@ -256,33 +451,48 @@ fn part1(puzzle: &Puzzle) -> i32 {
         }
 }
 
-fn part2(puzzle: &Puzzle) -> usize {
-    println!("{} {}", puzzle.max_x, puzzle.max_y);
-    let mut connections = HashSet::new();
-    let step;
-    if puzzle.max_x > puzzle.max_y {
-        step = puzzle.max_x / 4;
-        for y in 0..3 {
-            for x in 0..4 {
-                let p = Point2::new(x * step + 1, y * step + 1);
-                if let Some(_) = puzzle.map.get(&p) {
-                    connections.insert(Point2::new(x, y));
+fn part2(puzzle: &Puzzle) -> i32 {
+    // Find the starting point.
+    let mut current_pos = Point2::new(0, 0);
+    for x in 1.. {
+        let p = Point2::new(x, 1);
+        if let Some(tile) = puzzle.map.get(&p) {
+            match tile {
+                Tile::Open => {
+                    current_pos = p;
+                    break;
                 }
+                _ => continue,
             }
         }
-    } else {
-        step = puzzle.max_x / 3;
-        for y in 0..4 {
-            for x in 0..3 {
-                let p = Point2::new(x * step + 1, y * step + 1);
-                if let Some(_) = puzzle.map.get(&p) {
-                    connections.insert(Point2::new(x, y));
+    }
+
+    let mut direction = Direction::East;
+
+    for m in &puzzle.moves {
+        match m {
+            Move::Left => direction = turn_left(direction),
+            Move::Right => direction = turn_right(direction),
+            Move::Ahead(n) => {
+                for _ in 0..*n {
+                    if let Some(next) = puzzle.get_next2(current_pos, direction) {
+                        current_pos = next.0;
+                        direction = next.1;
+                    } else {
+                        break;
+                    }
                 }
             }
         }
     }
-    println!("{connections:?}");
-    0
+    1000 * current_pos.y
+        + 4 * current_pos.x
+        + match direction {
+            Direction::East => 0,
+            Direction::South => 1,
+            Direction::West => 2,
+            Direction::North => 3,
+        }
 }
 
 fn main() -> Result<(), Oops> {
