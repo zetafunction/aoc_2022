@@ -46,16 +46,18 @@ struct LocalPoint2 {
 
 impl LocalPoint2 {
     fn square(&self) -> i32 {
+        // TODO(this should depend on whether it is 4x3 or 3x4.
+        // Or we should just assign IDs based on a hash map (better).
         self.square_y * 3 + self.square_x
     }
 }
 
 impl Puzzle {
     fn global_to_local(&self, g: Point2) -> LocalPoint2 {
-        let square_x = (g.x - 1) / self.step;
-        let square_y = (g.y - 1) / self.step;
+        let square_x = g.x / self.step;
+        let square_y = g.y / self.step;
         LocalPoint2 {
-            p: Point2::new((g.x - 1) % self.step + 1, (g.y - 1) % self.step + 1),
+            p: Point2::new(g.x % self.step, g.y % self.step),
             square_x,
             square_y,
         }
@@ -94,7 +96,7 @@ impl Puzzle {
                         }
                         2 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 0,
                                 square_y: 3,
                             };
@@ -115,7 +117,7 @@ impl Puzzle {
                     Direction::East => match local.square() {
                         2 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 1,
                                 square_y: 2,
                             };
@@ -133,7 +135,7 @@ impl Puzzle {
                         }
                         7 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 2,
                                 square_y: 0,
                             };
@@ -172,7 +174,7 @@ impl Puzzle {
                         }
                         9 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 2,
                                 square_y: 0,
                             };
@@ -184,7 +186,7 @@ impl Puzzle {
                     Direction::West => match local.square() {
                         1 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 0,
                                 square_y: 2,
                             };
@@ -202,7 +204,7 @@ impl Puzzle {
                         }
                         6 => {
                             let new_local = LocalPoint2 {
-                                p: Point2::new(local.p.x, self.step + 1 - local.p.y),
+                                p: Point2::new(local.p.x, (self.step - 1) - local.p.y),
                                 square_x: 1,
                                 square_y: 0,
                             };
@@ -459,8 +461,8 @@ fn part1(puzzle: &Puzzle) -> i32 {
 fn part2(puzzle: &Puzzle) -> i32 {
     // Find the starting point.
     let mut current_pos = Point2::new(0, 0);
-    for x in 1.. {
-        let p = Point2::new(x, 1);
+    for x in 0.. {
+        let p = Point2::new(x, 0);
         if let Some(tile) = puzzle.map.get(&p) {
             match tile {
                 Tile::Open => {
@@ -490,8 +492,8 @@ fn part2(puzzle: &Puzzle) -> i32 {
             }
         }
     }
-    1000 * current_pos.y
-        + 4 * current_pos.x
+    1000 * (current_pos.y + 1)
+        + 4 * (current_pos.x + 1)
         + match direction {
             Direction::East => 0,
             Direction::South => 1,
