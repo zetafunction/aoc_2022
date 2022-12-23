@@ -91,6 +91,45 @@ impl Vector2 {
     }
 }
 
+// TODO: Maybe this should be a rectangle class?
+#[derive(Debug)]
+pub struct Bounds2 {
+    pub min: Point2,
+    pub max: Point2,
+}
+
+impl Bounds2 {
+    pub fn contains(&self, p: &Point2) -> bool {
+        p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
+    }
+
+    pub fn from_point2s<I>(i: I) -> Self
+    where
+        I: IntoIterator,
+        I::Item: Borrow<Point2>,
+    {
+        // TODO: Make this consistent with Bounds3 (bounds should be inclusive).
+        i.into_iter()
+            .fold(Self::new_uninitialized(), |b, p| Bounds2 {
+                min: Point2::new(
+                    std::cmp::min(b.min.x, p.borrow().x),
+                    std::cmp::min(b.min.y, p.borrow().y),
+                ),
+                max: Point2::new(
+                    std::cmp::max(b.max.x, p.borrow().x),
+                    std::cmp::max(b.max.y, p.borrow().y),
+                ),
+            })
+    }
+
+    fn new_uninitialized() -> Self {
+        Bounds2 {
+            min: Point2::new(i32::MAX, i32::MAX),
+            max: Point2::new(i32::MIN, i32::MIN),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Point3 {
     pub x: i32,
