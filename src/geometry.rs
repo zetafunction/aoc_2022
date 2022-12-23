@@ -103,12 +103,11 @@ impl Bounds2 {
         p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
     }
 
-    pub fn from_point2s<I>(i: I) -> Self
+    pub fn from_points<I>(i: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<Point2>,
     {
-        // TODO: Make this consistent with Bounds3 (bounds should be inclusive).
         i.into_iter()
             .fold(Self::new_uninitialized(), |b, p| Bounds2 {
                 min: Point2::new(
@@ -213,7 +212,7 @@ impl Bounds3 {
             && p.z <= self.max.z
     }
 
-    pub fn from_point3s<I>(i: I) -> Self
+    pub fn from_points<I>(i: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<Point3>,
@@ -221,14 +220,14 @@ impl Bounds3 {
         i.into_iter()
             .fold(Self::new_uninitialized(), |b, p| Bounds3 {
                 min: Point3::new(
-                    std::cmp::min(b.min.x, p.borrow().x - 1),
-                    std::cmp::min(b.min.y, p.borrow().y - 1),
-                    std::cmp::min(b.min.z, p.borrow().z - 1),
+                    std::cmp::min(b.min.x, p.borrow().x),
+                    std::cmp::min(b.min.y, p.borrow().y),
+                    std::cmp::min(b.min.z, p.borrow().z),
                 ),
                 max: Point3::new(
-                    std::cmp::max(b.max.x, p.borrow().x + 1),
-                    std::cmp::max(b.max.y, p.borrow().y + 1),
-                    std::cmp::max(b.max.z, p.borrow().z + 1),
+                    std::cmp::max(b.max.x, p.borrow().x),
+                    std::cmp::max(b.max.y, p.borrow().y),
+                    std::cmp::max(b.max.z, p.borrow().z),
                 ),
             })
     }
@@ -237,6 +236,49 @@ impl Bounds3 {
         Bounds3 {
             min: Point3::new(i32::MAX, i32::MAX, i32::MAX),
             max: Point3::new(i32::MIN, i32::MIN, i32::MIN),
+        }
+    }
+}
+
+impl Add<&Outsets3> for Bounds3 {
+    type Output = Bounds3;
+
+    fn add(self, rhs: &Outsets3) -> Bounds3 {
+        Bounds3 {
+            min: Point3::new(
+                self.min.x - rhs.left,
+                self.min.y - rhs.bottom,
+                self.min.z - rhs.front,
+            ),
+            max: Point3::new(
+                self.max.x + rhs.right,
+                self.max.y + rhs.top,
+                self.max.z + rhs.back,
+            ),
+        }
+    }
+}
+
+pub struct Outsets3 {
+    left: i32,
+    right: i32,
+    bottom: i32,
+    top: i32,
+    front: i32,
+    back: i32,
+}
+
+impl Outsets3 {
+    // TODO: Figure out how signedness should work here. A negative outset doesn't really make
+    // sense, since it's an inset?
+    pub fn new(all: i32) -> Self {
+        Outsets3 {
+            left: all,
+            right: all,
+            bottom: all,
+            top: all,
+            front: all,
+            back: all,
         }
     }
 }

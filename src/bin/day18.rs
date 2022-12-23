@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-use aoc_2022::geometry::{Bounds3, Point3};
+use aoc_2022::geometry::{Bounds3, Outsets3, Point3};
 use aoc_2022::{oops, oops::Oops};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read};
@@ -66,7 +66,10 @@ fn part1(puzzle: &Puzzle) -> i32 {
 
 fn part2(puzzle: &Puzzle) -> i32 {
     // Find the bounding box for the puzzle points.
-    let bounds = Bounds3::from_point3s(puzzle.points.iter());
+    let bounds = Bounds3::from_points(puzzle.points.iter());
+    // Expand the bounds by 1 in each dimension so the BFS can go around the edges of the solid.
+    let outsets = Outsets3::new(1);
+    let bounds = bounds + &outsets;
     let points: HashSet<_> = puzzle.points.iter().collect();
 
     // Do a BFS from a point guaranteed to be outside the solid and find all reachable surfaces.

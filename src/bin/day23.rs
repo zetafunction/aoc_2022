@@ -20,7 +20,6 @@ use std::str::FromStr;
 
 struct Puzzle {
     elves: Vec<Point2>,
-    bounds: Bounds2,
 }
 
 impl Puzzle {
@@ -133,7 +132,6 @@ impl FromStr for Puzzle {
             })
             .collect::<Result<HashMap<_, _>, Oops>>()?;
 
-        let bounds = Bounds2::from_point2s(grid.keys());
         let elves = grid
             .into_iter()
             .filter_map(|(k, v)| match v {
@@ -142,7 +140,7 @@ impl FromStr for Puzzle {
             })
             .collect();
 
-        Ok(Puzzle { elves, bounds })
+        Ok(Puzzle { elves })
     }
 }
 
@@ -158,8 +156,10 @@ enum Direction {
     East,
 }
 
-fn print(bounds: &Bounds2, positions: &Vec<Point2>) {
+#[allow(dead_code)]
+fn print(positions: &Vec<Point2>) {
     println!("Positions: ");
+    let bounds = Bounds2::from_points(positions.iter());
     for y in bounds.min.y..=bounds.max.y {
         println!(
             "{}",
@@ -206,7 +206,7 @@ fn part1(puzzle: &Puzzle) -> usize {
             .collect::<Vec<_>>();
         positions = new_positions;
     }
-    let rectangle = Bounds2::from_point2s(positions.iter());
+    let rectangle = Bounds2::from_points(positions.iter());
     ((rectangle.max.x - rectangle.min.x + 1) * (rectangle.max.y - rectangle.min.y + 1)) as usize
         - positions.len()
 }
@@ -228,6 +228,10 @@ fn part2(puzzle: &Puzzle) -> usize {
             })
             .collect::<Vec<_>>();
 
+        // TODO: Figure out if it is possible to avoid collecting the iterator. Clippy doesn't like
+        // this and wants `proposed_positions` and `new_positions` to be chained; however,
+        // proposed_positions_counts is mutably borrowed in the former and immutably borrowed in
+        // the latter.
         let new_positions = proposed_positions
             .into_iter()
             .enumerate()

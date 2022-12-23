@@ -543,6 +543,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(0, part2(&parse(SAMPLE).unwrap()));
     }
 }
