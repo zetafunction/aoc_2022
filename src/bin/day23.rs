@@ -111,34 +111,24 @@ impl FromStr for Puzzle {
     type Err = Oops;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        enum Tile {
-            Elf,
-            Empty,
-        }
-        let grid = s
+        let elves = s
             .lines()
             .enumerate()
             .flat_map(|(y, line)| {
-                line.chars().enumerate().map(move |(x, c)| {
-                    Ok((
-                        Point2::new(x.try_into()?, y.try_into()?),
-                        match c {
-                            '#' => Tile::Elf,
-                            '.' => Tile::Empty,
-                            _ => Err(oops!("bad tile"))?,
-                        },
-                    ))
-                })
+                line.chars()
+                    .enumerate()
+                    .map(move |(x, c)| match c {
+                        '#' => Ok(Some(Point2::new(x.try_into()?, y.try_into()?))),
+                        '.' => Ok(None),
+                        _ => Err(oops!("bad tile")),
+                    })
+                    .filter_map(|x| match x {
+                        Ok(None) => None,
+                        Ok(Some(x)) => Some(Ok(x)),
+                        Err(e) => Some(Err(e)),
+                    })
             })
-            .collect::<Result<HashMap<_, _>, Oops>>()?;
-
-        let elves = grid
-            .into_iter()
-            .filter_map(|(k, v)| match v {
-                Tile::Elf => Some(k),
-                Tile::Empty => None,
-            })
-            .collect();
+            .collect::<Result<Vec<_>, Oops>>()?;
 
         Ok(Puzzle { elves })
     }
