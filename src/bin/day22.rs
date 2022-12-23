@@ -244,7 +244,7 @@ impl Puzzle {
             Some(Tile::Wall) => return None,
             None => match d {
                 Direction::North => {
-                    for y in (1..=self.max_y).rev() {
+                    for y in (0..=self.max_y).rev() {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
@@ -253,7 +253,7 @@ impl Puzzle {
                     }
                 }
                 Direction::East => {
-                    for x in 1.. {
+                    for x in 0.. {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
@@ -262,7 +262,7 @@ impl Puzzle {
                     }
                 }
                 Direction::South => {
-                    for y in 1.. {
+                    for y in 0.. {
                         match self.map.get(&Point2::new(p.x, y)) {
                             Some(Tile::Open) => return Some(Point2::new(p.x, y)),
                             Some(Tile::Wall) => return None,
@@ -271,7 +271,7 @@ impl Puzzle {
                     }
                 }
                 Direction::West => {
-                    for x in (1..=self.max_x).rev() {
+                    for x in (0..=self.max_x).rev() {
                         match self.map.get(&Point2::new(x, p.y)) {
                             Some(Tile::Open) => return Some(Point2::new(x, p.y)),
                             Some(Tile::Wall) => return None,
@@ -321,14 +321,15 @@ impl FromStr for Puzzle {
         let (map_str, moves_str) = s
             .split_once("\n\n")
             .ok_or_else(|| oops!("invalid format"))?;
-        for (y, line) in (1..).zip(map_str.lines()) {
-            for (x, c) in (1..).zip(line.chars()) {
+        for (y, line) in map_str.lines().enumerate() {
+            for (x, c) in line.chars().enumerate() {
+                let p = Point2::new(x.try_into()?, y.try_into()?);
                 match c {
                     '#' => {
-                        map.insert(Point2::new(x as i32, y as i32), Tile::Wall);
+                        map.insert(p, Tile::Wall);
                     }
                     '.' => {
-                        map.insert(Point2::new(x as i32, y as i32), Tile::Open);
+                        map.insert(p, Tile::Open);
                     }
                     _ => (),
                 }
@@ -337,7 +338,11 @@ impl FromStr for Puzzle {
         let max_x = map.keys().map(|p| p.x).max().unwrap();
         let max_y = map.keys().map(|p| p.y).max().unwrap();
         let moves = parse_moves(moves_str);
-        let step = if max_x > max_y { max_x / 4 } else { max_y / 4 };
+        let step = if max_x > max_y {
+            (max_x + 1) / 4
+        } else {
+            (max_y + 1) / 4
+        };
         Ok(Puzzle {
             map,
             moves,
@@ -380,10 +385,10 @@ fn turn_right(d: Direction) -> Direction {
 
 fn print(puzzle: &Puzzle, current_pos: Point2, d: Direction) {
     println!("Current state:");
-    for y in 1..puzzle.max_y {
+    for y in 0..puzzle.max_y {
         println!(
             "{}",
-            (1..puzzle.max_x)
+            (0..puzzle.max_x)
                 .map(|x| {
                     let p = Point2::new(x, y);
                     if p == current_pos {
@@ -411,8 +416,8 @@ fn print(puzzle: &Puzzle, current_pos: Point2, d: Direction) {
 fn part1(puzzle: &Puzzle) -> i32 {
     // Find the starting point.
     let mut current_pos = Point2::new(0, 0);
-    for x in 1.. {
-        let p = Point2::new(x, 1);
+    for x in 0.. {
+        let p = Point2::new(x, 0);
         if let Some(tile) = puzzle.map.get(&p) {
             match tile {
                 Tile::Open => {
@@ -441,8 +446,8 @@ fn part1(puzzle: &Puzzle) -> i32 {
             }
         }
     }
-    1000 * current_pos.y
-        + 4 * current_pos.x
+    1000 * (current_pos.y + 1)
+        + 4 * (current_pos.x + 1)
         + match direction {
             Direction::East => 0,
             Direction::South => 1,
