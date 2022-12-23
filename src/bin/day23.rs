@@ -32,7 +32,7 @@ fn find_next_positions(round: usize, positions: &Vec<Point2>) -> Vec<Point2> {
             proposed_positions_counts
                 .entry(proposed_position)
                 .and_modify(|v| *v += 1)
-                .or_insert(1);
+                .or_insert(1u32);
             proposed_position
         })
         .collect::<Vec<_>>();
@@ -41,13 +41,13 @@ fn find_next_positions(round: usize, positions: &Vec<Point2>) -> Vec<Point2> {
     // this and wants `proposed_positions` and `new_positions` to be chained; however,
     // proposed_positions_counts is mutably borrowed in the former and immutably borrowed in the
     // latter.
-    proposed_positions
-        .into_iter()
-        .enumerate()
+    positions
+        .iter()
+        .zip(proposed_positions.into_iter())
         .map(
-            |(i, proposed_position)| match proposed_positions_counts.get(&proposed_position) {
-                Some(count) if *count == 1 => proposed_position,
-                Some(count) if *count != 1 => positions[i],
+            |(original, proposed)| match proposed_positions_counts.get(&proposed) {
+                Some(count) if *count == 1 => proposed,
+                Some(count) if *count > 1 => *original,
                 _ => panic!(),
             },
         )
