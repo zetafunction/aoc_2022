@@ -45,62 +45,27 @@ impl Puzzle {
         const WEST: Vector2 = Vector2::new(-1, 0);
         const NORTHWEST: Vector2 = Vector2::new(-1, -1);
 
-        if !occupied.contains(&(current + NORTH))
-            && !occupied.contains(&(current + NORTHEAST))
-            && !occupied.contains(&(current + EAST))
-            && !occupied.contains(&(current + SOUTHEAST))
-            && !occupied.contains(&(current + SOUTH))
-            && !occupied.contains(&(current + SOUTHWEST))
-            && !occupied.contains(&(current + WEST))
-            && !occupied.contains(&(current + NORTHWEST))
+        if [
+            NORTH, NORTHEAST, EAST, SOUTHEAST, SOUTH, SOUTHWEST, WEST, NORTHWEST,
+        ]
+        .iter()
+        .all(|v| !occupied.contains(&(current + *v)))
         {
             return current;
         }
 
         for i in 0..DIRECTIONS.len() {
             let direction_to_check = DIRECTIONS[(round + i) % 4];
-            match direction_to_check {
-                Direction::North => {
-                    if occupied.contains(&(current + NORTH))
-                        || occupied.contains(&(current + NORTHEAST))
-                        || occupied.contains(&(current + NORTHWEST))
-                    {
-                        continue;
-                    }
-                    let proposed = current + NORTH;
-                    return proposed;
-                }
-                Direction::South => {
-                    if occupied.contains(&(current + SOUTH))
-                        || occupied.contains(&(current + SOUTHEAST))
-                        || occupied.contains(&(current + SOUTHWEST))
-                    {
-                        continue;
-                    }
-                    let proposed = current + SOUTH;
-                    return proposed;
-                }
-                Direction::West => {
-                    if occupied.contains(&(current + WEST))
-                        || occupied.contains(&(current + NORTHWEST))
-                        || occupied.contains(&(current + SOUTHWEST))
-                    {
-                        continue;
-                    }
-                    let proposed = current + WEST;
-                    return proposed;
-                }
-                Direction::East => {
-                    if occupied.contains(&(current + EAST))
-                        || occupied.contains(&(current + NORTHEAST))
-                        || occupied.contains(&(current + SOUTHEAST))
-                    {
-                        continue;
-                    }
-                    let proposed = current + EAST;
-                    return proposed;
-                }
+            let to_check = match direction_to_check {
+                Direction::North => &[NORTH, NORTHEAST, NORTHWEST],
+                Direction::South => &[SOUTH, SOUTHEAST, SOUTHWEST],
+                Direction::West => &[WEST, NORTHWEST, SOUTHWEST],
+                Direction::East => &[EAST, NORTHEAST, SOUTHEAST],
+            };
+            if to_check.iter().any(|v| occupied.contains(&(current + *v))) {
+                continue;
             }
+            return current + to_check[0];
         }
 
         current
