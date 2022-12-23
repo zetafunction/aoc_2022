@@ -22,7 +22,7 @@ struct Puzzle {
     elves: Vec<Point2>,
 }
 
-fn find_next_positions(round: usize, positions: &Vec<Point2>) -> Vec<Point2> {
+fn find_next_positions(round: usize, positions: &[Point2]) -> Vec<Point2> {
     let position_set = HashSet::from_iter(positions.iter().copied());
     let mut proposed_positions_counts = HashMap::new();
     let proposed_positions = positions
@@ -137,7 +137,7 @@ enum Direction {
 }
 
 #[allow(dead_code)]
-fn print(positions: &Vec<Point2>) {
+fn print(positions: &[Point2]) {
     println!("Positions: ");
     let bounds = Bounds2::from_points(positions.iter());
     for y in bounds.min.y..=bounds.max.y {
