@@ -14,6 +14,7 @@
 
 use aoc_2022::{oops, oops::Oops};
 use std::collections::hash_map::{DefaultHasher, HashMap};
+use std::hash::Hasher;
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -130,6 +131,26 @@ impl Chamber {
                 self.base = new_base % GRID_ROWS;
                 self.used -= capacity_to_free;
             }
+        }
+
+        self.cycles_elapsed += 1;
+        if self.max_height > 100 {
+            let mut hasher = DefaultHasher::new();
+            for i in 0..100 {
+                hasher.write_u16(self.data[(self.max_height - i) % GRID_ROWS]);
+            }
+            self.seen
+                .entry(hasher.finish())
+                .and_modify(|v| {
+                    v.push(State {
+                        cycle: self.cycles_elapsed,
+                        height: self.max_height,
+                    })
+                })
+                .or_insert(vec![State {
+                    cycle: self.cycles_elapsed,
+                    height: self.max_height,
+                }]);
         }
     }
 
