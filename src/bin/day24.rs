@@ -212,46 +212,38 @@ fn bfs(puzzle: &Puzzle, start: Point2, end: Point2, starting_state: usize) -> us
 
     let mut states = vec![];
     states.push(SimState::new(puzzle.blizzards.clone()));
+    for _ in 1..cycle_length {
+        let next =
+            SimState::new(puzzle.get_next_blizzard_positions(&states.last().unwrap().blizzards));
+        states.push(next);
+    }
 
     let initial_search = Search {
         position: start,
-        state_index: 0,
+        state_index: starting_state,
     };
     let mut queue = VecDeque::new();
     queue.push_back(initial_search);
 
     let memoized_initial_search = MemoizedSearch {
         position: start,
-        state_index: 0,
+        state_index: starting_state % cycle_length,
     };
     let mut visited = HashSet::new();
     visited.insert(memoized_initial_search);
 
     while let Some(next) = queue.pop_front() {
-        println!(
-            "Considering {:?} at t = {}",
-            next.position, next.state_index
-        );
         if next.position == end {
-            return next.state_index + 1;
+            return next.state_index;
         }
 
-        let next_state_index = (next.state_index + 1);
-        let next_sim_state = match states.get(next_state_index % cycle_length) {
-            None => {
-                let state = &states[next.state_index];
-                states.push(SimState::new(
-                    puzzle.get_next_blizzard_positions(&state.blizzards),
-                ));
-                states.last().unwrap()
-            }
-            Some(state) => state,
-        };
+        let next_state_index = next.state_index + 1;
+        let next_sim_state = &states[next_state_index % cycle_length];
 
         // Get valid moves.
         let mut moves = vec![];
         for neighbor in next.position.neighbors() {
-            if !puzzle.bounds.contains(&neighbor) {
+            if !puzzle.bounds.contains(&neighbor) && neighbor != start && neighbor != end {
                 continue;
             }
             if next_sim_state.positions.contains(&neighbor) {
@@ -289,13 +281,21 @@ fn part1(puzzle: &Puzzle) -> usize {
     let start = Point2::new(0, -1);
     let end = Point2::new(
         puzzle.bounds.max.x - puzzle.bounds.min.x,
-        puzzle.bounds.max.y - puzzle.bounds.min.y,
+        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
     );
     bfs(puzzle, start, end, 0)
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    0
+    let start = Point2::new(0, -1);
+    let end = Point2::new(
+        puzzle.bounds.max.x - puzzle.bounds.min.x,
+        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
+    );
+    let begin_to_end = bfs(puzzle, start, end, 0);
+    let end_to_begin = bfs(puzzle, end, start, begin_to_end);
+    let begin_to_end_again = bfs(puzzle, start, end, end_to_begin);
+    begin_to_end_again
 }
 
 fn main() -> Result<(), Oops> {
@@ -305,8 +305,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part2(&puzzle));
     println!("{}", part1(&puzzle));
+    println!("{}", part2(&puzzle));
 
     Ok(())
 }
@@ -381,6 +381,6 @@ mod tests {
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(54, part2(&parse(SAMPLE).unwrap()));
     }
 }
