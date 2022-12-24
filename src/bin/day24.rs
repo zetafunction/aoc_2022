@@ -201,6 +201,7 @@ fn find_cycle_length(puzzle: &Puzzle) -> usize {
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
+    println!("Puzzle bounds: {:?}", puzzle.bounds);
     let cycle_length = find_cycle_length(puzzle);
     let end = Point2::new(
         puzzle.bounds.max.x - puzzle.bounds.min.x + 1,
@@ -222,6 +223,7 @@ fn part1(puzzle: &Puzzle) -> usize {
     visited.insert(initial_search);
 
     while let Some(next) = queue.pop_front() {
+        println!("Considering {:?}", next.position);
         if next.position == end {
             return next.state_index;
         }
@@ -241,6 +243,9 @@ fn part1(puzzle: &Puzzle) -> usize {
         // Get valid moves.
         let mut moves = vec![];
         for neighbor in next.position.neighbors() {
+            if !puzzle.bounds.contains(&neighbor) {
+                continue;
+            }
             if next_sim_state.positions.contains(&neighbor) {
                 continue;
             }
@@ -265,7 +270,7 @@ fn part1(puzzle: &Puzzle) -> usize {
             visited.insert(m);
         }
     }
-    0
+    panic!("no path!");
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
