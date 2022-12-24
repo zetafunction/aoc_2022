@@ -110,13 +110,13 @@ impl Bounds2 {
     // TODO: What numeric type should this use?
     #[must_use]
     pub fn height(&self) -> i32 {
-        self.max.x - self.min.x
+        self.max.y - self.min.y + 1
     }
 
     // TODO: What numeric type should this use?
     #[must_use]
     pub fn width(&self) -> i32 {
-        self.max.y - self.min.y
+        self.max.x - self.min.x + 1
     }
 
     #[must_use]

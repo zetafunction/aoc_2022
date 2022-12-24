@@ -48,26 +48,51 @@ fn get_vector_for_direction(d: Direction) -> Vector2 {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Blizzard {
     position: Point2,
+    // Direction and vector are represented separately purely for ease of debugging.
     direction: Direction,
     vector: Vector2,
 }
-struct Puzzle {
+
+struct SimState {
     blizzards: Vec<Blizzard>,
+    // Technically, this is redundant with blizzards but allows for faster collision testing.
+    // An alternate representation would be a HashMap of Vec<Blizzard>, but it is not entirely
+    // obvious that this will be a significant improvement, since it would require a lot more small
+    // vectors.
+    positions: HashSet<Point2>,
+}
+
+impl SimState {
+    // TODO: Is this something that would be more appropriately implemented using the From trait?
+    fn new(blizzards: Vec<Blizzard>) -> Self {
+        let positions = blizzards.iter().map(|blizzard| blizzard.position).collect();
+        Self {
+            blizzards,
+            positions,
+        }
+    }
+}
+
+struct Puzzle {
     bounds: Bounds2,
+    // Since the blizzards wrap around to the other side of the valley, the states eventually
+    // cycle. index = 0 is the initial state, index = 1 is the state after stepping the state
+    // forward once, et cetera.
+    states: Vec<SimState>,
 }
 
 impl Puzzle {
-    fn get_next_blizzard_positions(&self, current: &[Blizzard]) -> Vec<Blizzard> {
+    fn move_blizzards(bounds: &Bounds2, current: &[Blizzard]) -> Vec<Blizzard> {
         current
             .iter()
             .map(|blizzard| {
                 let next_position = blizzard.position + blizzard.vector;
-                let next_position = if self.bounds.contains(&next_position) {
+                let next_position = if bounds.contains(&next_position) {
                     next_position
                 } else {
                     Point2::new(
-                        (next_position.x + self.bounds.width()) % self.bounds.width(),
-                        (next_position.y + self.bounds.height()) % self.bounds.height(),
+                        (next_position.x + bounds.width()) % bounds.width(),
+                        (next_position.y + bounds.height()) % bounds.height(),
                     )
                 };
                 Blizzard {
@@ -78,6 +103,95 @@ impl Puzzle {
             })
             .collect()
     }
+
+    fn compute_states(bounds: &Bounds2, initial: &[Blizzard]) -> Vec<SimState> {
+        let mut states = vec![];
+        let mut seen = HashSet::new();
+        states.push(SimState::new(initial.to_vec()));
+        seen.insert(initial.to_vec());
+        loop {
+            let next = Self::move_blizzards(bounds, &states.last().unwrap().blizzards);
+            if seen.contains(&next) {
+                break;
+            }
+            states.push(SimState::new(next.clone()));
+            seen.insert(next);
+        }
+        states
+    }
+    fn bfs(&self, start: Point2, end: Point2, starting_state: usize) -> usize {
+        #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+        struct Search {
+            position: Point2,
+            state_index: usize,
+        }
+
+        // Unlike Search, state_index is wrapped at the cycle length.
+        #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+        struct MemoizedSearch {
+            position: Point2,
+            state_index: usize,
+        }
+
+        let cycle_length = self.states.len();
+        let initial_search = Search {
+            position: start,
+            state_index: starting_state,
+        };
+        let mut queue = VecDeque::new();
+        queue.push_back(initial_search);
+
+        let memoized_initial_search = MemoizedSearch {
+            position: start,
+            state_index: starting_state % cycle_length,
+        };
+        let mut visited = HashSet::new();
+        visited.insert(memoized_initial_search);
+
+        while let Some(next) = queue.pop_front() {
+            if next.position == end {
+                return next.state_index;
+            }
+
+            let next_state_index = next.state_index + 1;
+            let next_sim_state = &self.states[next_state_index % cycle_length];
+
+            // Get valid moves.
+            let mut moves = vec![];
+            for neighbor in next.position.neighbors() {
+                if !self.bounds.contains(&neighbor) && neighbor != start && neighbor != end {
+                    continue;
+                }
+                if next_sim_state.positions.contains(&neighbor) {
+                    continue;
+                }
+                moves.push(Search {
+                    position: neighbor,
+                    state_index: next_state_index,
+                });
+            }
+            if !next_sim_state.positions.contains(&next.position) {
+                moves.push(Search {
+                    position: next.position,
+                    state_index: next_state_index,
+                });
+            }
+
+            // Prune.
+            for m in moves {
+                let memoized = MemoizedSearch {
+                    position: m.position,
+                    state_index: m.state_index % cycle_length,
+                };
+                if visited.contains(&memoized) {
+                    continue;
+                }
+                queue.push_back(m);
+                visited.insert(memoized);
+            }
+        }
+        panic!("no path!");
+    }
 }
 
 impl FromStr for Puzzle {
@@ -87,6 +201,9 @@ impl FromStr for Puzzle {
         let mut max_x = 0;
         let mut max_y = 0;
         let mut blizzards = vec![];
+        // Start at -1 to just ignore the # borders. In addition, the problems inputs always start
+        // one square above the leftmost top square and end one square below the rightmost bottom
+        // square. This allows the wraparound logic to be straightforward modular arithmetic.
         for (y, line) in (-1..).zip(s.lines()) {
             for (x, c) in (-1..).zip(line.chars()) {
                 max_x = std::cmp::max(max_x, x);
@@ -111,7 +228,10 @@ impl FromStr for Puzzle {
             min: Point2::new(0, 0),
             max: Point2::new(max_x - 1, max_y - 1),
         };
-        Ok(Puzzle { blizzards, bounds })
+
+        let states = Self::compute_states(&bounds, &blizzards);
+
+        Ok(Puzzle { bounds, states })
     }
 }
 
@@ -156,137 +276,20 @@ fn visualize(bounds: &Bounds2, blizzards: &[Blizzard]) -> String {
     lines.join("\n")
 }
 
-struct SimState {
-    blizzards: Vec<Blizzard>,
-    positions: HashSet<Point2>,
-}
-
-impl SimState {
-    fn new(blizzards: Vec<Blizzard>) -> Self {
-        let positions = blizzards.iter().map(|blizzard| blizzard.position).collect();
-        Self {
-            blizzards,
-            positions,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct Search {
-    position: Point2,
-    state_index: usize,
-}
-
-// Unlike Search, state_index is wrapped at the cycle length.
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-struct MemoizedSearch {
-    position: Point2,
-    state_index: usize,
-}
-
-fn find_cycle_length(puzzle: &Puzzle) -> usize {
-    let mut next = puzzle.blizzards.clone();
-    let mut seen = HashSet::new();
-    for i in 0.. {
-        if seen.contains(&next) {
-            // Assume the first duplicate indicates a cycle.
-            return i;
-        }
-        seen.insert(next.clone());
-        next = puzzle.get_next_blizzard_positions(&next);
-    }
-    0
-}
-
-fn bfs(puzzle: &Puzzle, start: Point2, end: Point2, starting_state: usize) -> usize {
-    let cycle_length = find_cycle_length(puzzle);
-
-    let mut states = vec![];
-    states.push(SimState::new(puzzle.blizzards.clone()));
-    for _ in 1..cycle_length {
-        let next =
-            SimState::new(puzzle.get_next_blizzard_positions(&states.last().unwrap().blizzards));
-        states.push(next);
-    }
-
-    let initial_search = Search {
-        position: start,
-        state_index: starting_state,
-    };
-    let mut queue = VecDeque::new();
-    queue.push_back(initial_search);
-
-    let memoized_initial_search = MemoizedSearch {
-        position: start,
-        state_index: starting_state % cycle_length,
-    };
-    let mut visited = HashSet::new();
-    visited.insert(memoized_initial_search);
-
-    while let Some(next) = queue.pop_front() {
-        if next.position == end {
-            return next.state_index;
-        }
-
-        let next_state_index = next.state_index + 1;
-        let next_sim_state = &states[next_state_index % cycle_length];
-
-        // Get valid moves.
-        let mut moves = vec![];
-        for neighbor in next.position.neighbors() {
-            if !puzzle.bounds.contains(&neighbor) && neighbor != start && neighbor != end {
-                continue;
-            }
-            if next_sim_state.positions.contains(&neighbor) {
-                continue;
-            }
-            moves.push(Search {
-                position: neighbor,
-                state_index: next_state_index,
-            });
-        }
-        if !next_sim_state.positions.contains(&next.position) {
-            moves.push(Search {
-                position: next.position,
-                state_index: next_state_index,
-            });
-        }
-
-        // Prune.
-        for m in moves {
-            let memoized = MemoizedSearch {
-                position: m.position,
-                state_index: m.state_index % cycle_length,
-            };
-            if visited.contains(&memoized) {
-                continue;
-            }
-            queue.push_back(m);
-            visited.insert(memoized);
-        }
-    }
-    panic!("no path!");
-}
-
 fn part1(puzzle: &Puzzle) -> usize {
     let start = Point2::new(0, -1);
-    let end = Point2::new(
-        puzzle.bounds.max.x - puzzle.bounds.min.x,
-        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
-    );
-    bfs(puzzle, start, end, 0)
+    let end = Point2::new(puzzle.bounds.width() - 1, puzzle.bounds.height());
+    puzzle.bfs(start, end, 0)
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
     let start = Point2::new(0, -1);
-    let end = Point2::new(
-        puzzle.bounds.max.x - puzzle.bounds.min.x,
-        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
-    );
-    let begin_to_end = bfs(puzzle, start, end, 0);
-    let end_to_begin = bfs(puzzle, end, start, begin_to_end);
-    let begin_to_end_again = bfs(puzzle, start, end, end_to_begin);
-    begin_to_end_again
+    let end = Point2::new(puzzle.bounds.width() - 1, puzzle.bounds.height());
+    puzzle.bfs(
+        start,
+        end,
+        puzzle.bfs(end, start, puzzle.bfs(start, end, 0)),
+    )
 }
 
 fn main() -> Result<(), Oops> {
@@ -316,7 +319,7 @@ mod tests {
         "#####.#\n",
     );
 
-    const SAMPLE: &str = concat!(
+    const COMPLEX: &str = concat!(
         "#.######\n",
         "#>>.<^<#\n",
         "#.<..<<#\n",
@@ -326,52 +329,72 @@ mod tests {
     );
 
     #[test]
-    fn simulation() {
+    fn simple_computed_blizzard_states() {
         let puzzle = parse(SIMPLE).unwrap();
+        assert_eq!(5, puzzle.states.len());
         assert_eq!(
             concat!(".....\n", ">....\n", ".....\n", "...v.\n", ".....",),
-            visualize(&puzzle.bounds, &puzzle.blizzards)
+            visualize(&puzzle.bounds, &puzzle.states[0].blizzards)
         );
-        let next = puzzle.get_next_blizzard_positions(&puzzle.blizzards);
         assert_eq!(
             concat!(".....\n", ".>...\n", ".....\n", ".....\n", "...v.",),
-            visualize(&puzzle.bounds, &next)
+            visualize(&puzzle.bounds, &puzzle.states[1].blizzards)
         );
-        let next = puzzle.get_next_blizzard_positions(&next);
-        assert_eq!(
-            concat!("...v.\n", "..>..\n", ".....\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &next)
-        );
-        let next = puzzle.get_next_blizzard_positions(&next);
         assert_eq!(
             concat!(".....\n", "...2.\n", ".....\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &next)
+            visualize(&puzzle.bounds, &puzzle.states[3].blizzards)
         );
-        let next = puzzle.get_next_blizzard_positions(&next);
+        assert_eq!(
+            concat!("...v.\n", "..>..\n", ".....\n", ".....\n", ".....",),
+            visualize(&puzzle.bounds, &puzzle.states[2].blizzards)
+        );
         assert_eq!(
             concat!(".....\n", "....>\n", "...v.\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &next)
-        );
-        let next = puzzle.get_next_blizzard_positions(&next);
-        assert_eq!(
-            concat!(".....\n", ">....\n", ".....\n", "...v.\n", ".....",),
-            visualize(&puzzle.bounds, &next)
+            visualize(&puzzle.bounds, &puzzle.states[4].blizzards)
         );
     }
 
     #[test]
-    fn cycle_length() {
-        assert_eq!(5, find_cycle_length(&parse(SIMPLE).unwrap()));
-        assert_eq!(12, find_cycle_length(&parse(SAMPLE).unwrap()));
+    fn complex_computed_blizzard_states() {
+        let puzzle = parse(COMPLEX).unwrap();
+        assert_eq!(12, puzzle.states.len());
+        assert_eq!(
+            concat!(">>.<^<\n", ".<..<<\n", ">v.><>\n", "<^v^^>",),
+            visualize(&puzzle.bounds, &puzzle.states[0].blizzards)
+        );
+        assert_eq!(
+            concat!(".>3.<.\n", "<..<<.\n", ">2.22.\n", ">v..^<",),
+            visualize(&puzzle.bounds, &puzzle.states[1].blizzards)
+        );
+
+        assert_eq!(
+            concat!(".2>2..\n", ".^22^<\n", ".>2.^>\n", ".>..<.",),
+            visualize(&puzzle.bounds, &puzzle.states[2].blizzards)
+        );
+
+        assert_eq!(
+            concat!("<^<22.\n", ".2<.2.\n", "><2>..\n", "..><..",),
+            visualize(&puzzle.bounds, &puzzle.states[3].blizzards)
+        );
+
+        assert_eq!(
+            concat!(".<..22\n", "<<.<..\n", "<2.>>.\n", ".^22^.",),
+            visualize(&puzzle.bounds, &puzzle.states[4].blizzards)
+        );
+
+        assert_eq!(
+            concat!("2.v.<>\n", "<.<..<\n", ".^>^22\n", ".2..2.",),
+            visualize(&puzzle.bounds, &puzzle.states[5].blizzards)
+        );
     }
 
     #[test]
     fn example1() {
-        assert_eq!(18, part1(&parse(SAMPLE).unwrap()));
+        assert_eq!(18, part1(&parse(COMPLEX).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(54, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(54, part2(&parse(COMPLEX).unwrap()));
     }
 }
