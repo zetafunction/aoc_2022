@@ -212,6 +212,13 @@ impl Bounds3 {
             && p.z <= self.max.z
     }
 
+    pub fn outset(&self, n: i32) -> Self {
+        Bounds3 {
+            min: Point3::new(self.min.x - n, self.min.y - n, self.min.z - n),
+            max: Point3::new(self.max.x + n, self.max.x + n, self.max.z + n),
+        }
+    }
+
     pub fn from_points<I>(i: I) -> Self
     where
         I: IntoIterator,
@@ -236,49 +243,6 @@ impl Bounds3 {
         Bounds3 {
             min: Point3::new(i32::MAX, i32::MAX, i32::MAX),
             max: Point3::new(i32::MIN, i32::MIN, i32::MIN),
-        }
-    }
-}
-
-impl Add<&Outsets3> for Bounds3 {
-    type Output = Bounds3;
-
-    fn add(self, rhs: &Outsets3) -> Bounds3 {
-        Bounds3 {
-            min: Point3::new(
-                self.min.x - rhs.left,
-                self.min.y - rhs.bottom,
-                self.min.z - rhs.front,
-            ),
-            max: Point3::new(
-                self.max.x + rhs.right,
-                self.max.y + rhs.top,
-                self.max.z + rhs.back,
-            ),
-        }
-    }
-}
-
-pub struct Outsets3 {
-    left: i32,
-    right: i32,
-    bottom: i32,
-    top: i32,
-    front: i32,
-    back: i32,
-}
-
-impl Outsets3 {
-    // TODO: Figure out how signedness should work here. A negative outset doesn't really make
-    // sense, since it's an inset?
-    pub fn new(all: i32) -> Self {
-        Outsets3 {
-            left: all,
-            right: all,
-            bottom: all,
-            top: all,
-            front: all,
-            back: all,
         }
     }
 }

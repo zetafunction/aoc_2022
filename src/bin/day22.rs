@@ -385,6 +385,7 @@ fn turn_right(d: Direction) -> Direction {
     }
 }
 
+#[allow(dead_code)]
 fn print(puzzle: &Puzzle, current_pos: Point2, d: Direction) {
     println!("Current state:");
     for y in 0..puzzle.max_y {
