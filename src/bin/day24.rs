@@ -140,26 +140,19 @@ fn visualize(bounds: &Bounds2, blizzards: &[Blizzard]) -> String {
     }
     let lines = (bounds.min.y..=bounds.max.y)
         .map(|y| {
-            format!(
-                "{}",
-                (bounds.min.x..=bounds.max.x)
-                    .map(|x| {
-                        match blizzards_and_counts.get(&Point2::new(x, y)) {
-                            Some(Visualization::Direction(d)) => match d {
-                                Direction::North => '^',
-                                Direction::East => '>',
-                                Direction::South => 'v',
-                                Direction::West => '<',
-                            },
-                            Some(Visualization::Count(c)) if *c < 10 => {
-                                (*c as u8 + '0' as u8) as char
-                            }
-                            Some(Visualization::Count(_)) => '!',
-                            None => '.',
-                        }
-                    })
-                    .collect::<String>()
-            )
+            (bounds.min.x..=bounds.max.x)
+                .map(|x| match blizzards_and_counts.get(&Point2::new(x, y)) {
+                    Some(Visualization::Direction(d)) => match d {
+                        Direction::North => '^',
+                        Direction::East => '>',
+                        Direction::South => 'v',
+                        Direction::West => '<',
+                    },
+                    Some(Visualization::Count(c)) if *c < 10 => (*c as u8 + b'0') as char,
+                    Some(Visualization::Count(_)) => '!',
+                    None => '.',
+                })
+                .collect::<String>()
         })
         .collect::<Vec<_>>();
     lines.join("\n")
