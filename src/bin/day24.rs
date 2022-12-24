@@ -266,9 +266,7 @@ fn part1(puzzle: &Puzzle) -> usize {
                 state_index: next_state_index,
             });
         }
-        if !next_sim_state.positions.contains(&next.position)
-            && puzzle.bounds.contains(&next.position)
-        {
+        if !next_sim_state.positions.contains(&next.position) {
             moves.push(Search {
                 position: next.position,
                 state_index: next_state_index,
