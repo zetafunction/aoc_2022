@@ -180,7 +180,8 @@ impl SimState {
     }
 }
 
-struct SearchState {
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct Search {
     position: Point2,
     state_index: usize,
 }
@@ -200,17 +201,70 @@ fn find_cycle_length(puzzle: &Puzzle) -> usize {
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
+    let cycle_length = find_cycle_length(puzzle);
     let end = Point2::new(
         puzzle.bounds.max.x - puzzle.bounds.min.x + 1,
         puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
     );
+
     let mut states = vec![];
-    let mut queue = VecDeque::new();
     states.push(SimState::new(puzzle.blizzards.clone()));
-    queue.push_back(SearchState {
+
+    let initial_search = Search {
         position: Point2::new(0, -1),
         state_index: 0,
-    });
+    };
+
+    let mut queue = VecDeque::new();
+    queue.push_back(initial_search);
+
+    let mut visited = HashSet::new();
+    visited.insert(initial_search);
+
+    while let Some(next) = queue.pop_front() {
+        if next.position == end {
+            return next.state_index;
+        }
+
+        let next_state_index = (next.state_index + 1) % cycle_length;
+        let next_sim_state = match states.get(next_state_index) {
+            None => {
+                let state = &states[next.state_index];
+                states.push(SimState::new(
+                    puzzle.get_next_blizzard_positions(&state.blizzards),
+                ));
+                states.last().unwrap()
+            }
+            Some(state) => state,
+        };
+
+        // Get valid moves.
+        let mut moves = vec![];
+        for neighbor in next.position.neighbors() {
+            if next_sim_state.positions.contains(&neighbor) {
+                continue;
+            }
+            moves.push(Search {
+                position: neighbor,
+                state_index: next_state_index,
+            });
+        }
+        if !next_sim_state.positions.contains(&next.position) {
+            moves.push(Search {
+                position: next.position,
+                state_index: next_state_index,
+            });
+        }
+
+        // Prune.
+        for m in moves {
+            if visited.contains(&m) {
+                continue;
+            }
+            queue.push_back(m);
+            visited.insert(m);
+        }
+    }
     0
 }
 
