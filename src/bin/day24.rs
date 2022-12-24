@@ -192,6 +192,43 @@ impl Puzzle {
         }
         panic!("no path!");
     }
+
+    #[allow(dead_code)]
+    fn visualize(&self, state_index: usize) -> String {
+        #[derive(Debug)]
+        enum Visualization {
+            Direction(Direction),
+            Count(usize),
+        }
+        let mut blizzards_and_counts = HashMap::new();
+        for blizzard in &self.states[state_index].blizzards {
+            blizzards_and_counts
+                .entry(blizzard.position)
+                .and_modify(|v| match v {
+                    Visualization::Direction(_) => *v = Visualization::Count(2),
+                    Visualization::Count(x) => *x += 1,
+                })
+                .or_insert(Visualization::Direction(blizzard.direction));
+        }
+        let lines = (self.bounds.min.y..=self.bounds.max.y)
+            .map(|y| {
+                (self.bounds.min.x..=self.bounds.max.x)
+                    .map(|x| match blizzards_and_counts.get(&Point2::new(x, y)) {
+                        Some(Visualization::Direction(d)) => match d {
+                            Direction::North => '^',
+                            Direction::East => '>',
+                            Direction::South => 'v',
+                            Direction::West => '<',
+                        },
+                        Some(Visualization::Count(c)) if *c < 10 => (*c as u8 + b'0') as char,
+                        Some(Visualization::Count(_)) => '!',
+                        None => '.',
+                    })
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        lines.join("\n")
+    }
 }
 
 impl FromStr for Puzzle {
@@ -237,43 +274,6 @@ impl FromStr for Puzzle {
 
 fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
-}
-
-#[allow(dead_code)]
-fn visualize(bounds: &Bounds2, blizzards: &[Blizzard]) -> String {
-    #[derive(Debug)]
-    enum Visualization {
-        Direction(Direction),
-        Count(usize),
-    }
-    let mut blizzards_and_counts = HashMap::new();
-    for blizzard in blizzards {
-        blizzards_and_counts
-            .entry(blizzard.position)
-            .and_modify(|v| match v {
-                Visualization::Direction(_) => *v = Visualization::Count(2),
-                Visualization::Count(x) => *x += 1,
-            })
-            .or_insert(Visualization::Direction(blizzard.direction));
-    }
-    let lines = (bounds.min.y..=bounds.max.y)
-        .map(|y| {
-            (bounds.min.x..=bounds.max.x)
-                .map(|x| match blizzards_and_counts.get(&Point2::new(x, y)) {
-                    Some(Visualization::Direction(d)) => match d {
-                        Direction::North => '^',
-                        Direction::East => '>',
-                        Direction::South => 'v',
-                        Direction::West => '<',
-                    },
-                    Some(Visualization::Count(c)) if *c < 10 => (*c as u8 + b'0') as char,
-                    Some(Visualization::Count(_)) => '!',
-                    None => '.',
-                })
-                .collect::<String>()
-        })
-        .collect::<Vec<_>>();
-    lines.join("\n")
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
@@ -334,23 +334,23 @@ mod tests {
         assert_eq!(5, puzzle.states.len());
         assert_eq!(
             concat!(".....\n", ">....\n", ".....\n", "...v.\n", ".....",),
-            visualize(&puzzle.bounds, &puzzle.states[0].blizzards)
+            puzzle.visualize(0)
         );
         assert_eq!(
             concat!(".....\n", ".>...\n", ".....\n", ".....\n", "...v.",),
-            visualize(&puzzle.bounds, &puzzle.states[1].blizzards)
-        );
-        assert_eq!(
-            concat!(".....\n", "...2.\n", ".....\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &puzzle.states[3].blizzards)
+            puzzle.visualize(1)
         );
         assert_eq!(
             concat!("...v.\n", "..>..\n", ".....\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &puzzle.states[2].blizzards)
+            puzzle.visualize(2)
+        );
+        assert_eq!(
+            concat!(".....\n", "...2.\n", ".....\n", ".....\n", ".....",),
+            puzzle.visualize(3)
         );
         assert_eq!(
             concat!(".....\n", "....>\n", "...v.\n", ".....\n", ".....",),
-            visualize(&puzzle.bounds, &puzzle.states[4].blizzards)
+            puzzle.visualize(4)
         );
     }
 
@@ -360,31 +360,31 @@ mod tests {
         assert_eq!(12, puzzle.states.len());
         assert_eq!(
             concat!(">>.<^<\n", ".<..<<\n", ">v.><>\n", "<^v^^>",),
-            visualize(&puzzle.bounds, &puzzle.states[0].blizzards)
+            puzzle.visualize(0)
         );
         assert_eq!(
             concat!(".>3.<.\n", "<..<<.\n", ">2.22.\n", ">v..^<",),
-            visualize(&puzzle.bounds, &puzzle.states[1].blizzards)
+            puzzle.visualize(1)
         );
 
         assert_eq!(
             concat!(".2>2..\n", ".^22^<\n", ".>2.^>\n", ".>..<.",),
-            visualize(&puzzle.bounds, &puzzle.states[2].blizzards)
+            puzzle.visualize(2)
         );
 
         assert_eq!(
             concat!("<^<22.\n", ".2<.2.\n", "><2>..\n", "..><..",),
-            visualize(&puzzle.bounds, &puzzle.states[3].blizzards)
+            puzzle.visualize(3)
         );
 
         assert_eq!(
             concat!(".<..22\n", "<<.<..\n", "<2.>>.\n", ".^22^.",),
-            visualize(&puzzle.bounds, &puzzle.states[4].blizzards)
+            puzzle.visualize(4)
         );
 
         assert_eq!(
             concat!("2.v.<>\n", "<.<..<\n", ".^>^22\n", ".2..2.",),
-            visualize(&puzzle.bounds, &puzzle.states[5].blizzards)
+            puzzle.visualize(5)
         );
     }
 
