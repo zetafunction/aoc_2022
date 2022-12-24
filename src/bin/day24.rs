@@ -36,21 +36,21 @@ fn parse_direction(c: char) -> Direction {
     }
 }
 
-fn get_vector_for_direction(d: Direction) -> Vector2 {
-    match d {
-        Direction::North => Vector2::new(0, -1),
-        Direction::East => Vector2::new(1, 0),
-        Direction::South => Vector2::new(0, 1),
-        Direction::West => Vector2::new(-1, 0),
-    }
-}
-
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Blizzard {
     position: Point2,
-    // Direction and vector are represented separately purely for ease of debugging.
     direction: Direction,
-    vector: Vector2,
+}
+
+impl Blizzard {
+    fn vector(&self) -> Vector2 {
+        match self.direction {
+            Direction::North => Vector2::new(0, -1),
+            Direction::East => Vector2::new(1, 0),
+            Direction::South => Vector2::new(0, 1),
+            Direction::West => Vector2::new(-1, 0),
+        }
+    }
 }
 
 struct SimState {
@@ -86,7 +86,7 @@ impl Puzzle {
         current
             .iter()
             .map(|blizzard| {
-                let next_position = blizzard.position + blizzard.vector;
+                let next_position = blizzard.position + blizzard.vector();
                 let next_position = if bounds.contains(&next_position) {
                     next_position
                 } else {
@@ -98,7 +98,6 @@ impl Puzzle {
                 Blizzard {
                     position: next_position,
                     direction: blizzard.direction,
-                    vector: blizzard.vector,
                 }
             })
             .collect()
@@ -254,7 +253,6 @@ impl FromStr for Puzzle {
                         blizzards.push(Blizzard {
                             position: Point2::new(x, y),
                             direction,
-                            vector: get_vector_for_direction(direction),
                         });
                     }
                 }
