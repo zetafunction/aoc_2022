@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 use aoc_2022::{oops, oops::Oops};
+use std::collections::hash_map::{DefaultHasher, HashMap};
 use std::io::{self, Read};
 use std::str::FromStr;
 
@@ -78,18 +79,21 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-enum State {
-    NewRock,
-    FallJet,
-}
-
 // Empirically, smaller sizes seem to produce less throughput.
 const GRID_ROWS: usize = 1024;
+
+struct State {
+    cycle: usize,
+    height: usize,
+}
 
 struct Chamber {
     base: usize,
     used: usize,
     data: [Row; GRID_ROWS],
+    max_height: usize,
+    cycles_elapsed: usize,
+    seen: HashMap<u64, Vec<State>>,
 }
 
 impl Chamber {
@@ -98,6 +102,9 @@ impl Chamber {
             base: 0,
             used: 10,
             data: [0; GRID_ROWS],
+            max_height: 0,
+            cycles_elapsed: 0,
+            seen: HashMap::new(),
         };
         chamber.data[0] = 0xffff;
         for i in 1..GRID_ROWS {
@@ -106,18 +113,23 @@ impl Chamber {
         chamber
     }
 
-    fn mark_new_rows_used(&mut self, delta: usize) {
-        self.used += delta;
+    fn mark_new_rows_used(&mut self, height: usize) {
+        if height > self.max_height {
+            let delta = height - self.max_height;
+            self.max_height = height;
 
-        if self.used > GRID_ROWS - 10 {
-            let capacity_to_free = GRID_ROWS / 2;
-            let old_base = self.base;
-            let new_base = self.base + capacity_to_free;
-            for i in old_base..new_base {
-                self.data[i % GRID_ROWS] = 0x80ff;
+            self.used += delta;
+
+            if self.used > GRID_ROWS - 10 {
+                let capacity_to_free = GRID_ROWS / 2;
+                let old_base = self.base;
+                let new_base = self.base + capacity_to_free;
+                for i in old_base..new_base {
+                    self.data[i % GRID_ROWS] = 0x80ff;
+                }
+                self.base = new_base % GRID_ROWS;
+                self.used -= capacity_to_free;
             }
-            self.base = new_base % GRID_ROWS;
-            self.used -= capacity_to_free;
         }
     }
 
@@ -184,6 +196,11 @@ fn build_new_rock_lookup_table() -> Vec<u64> {
 }
 
 fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
+    enum State {
+        NewRock,
+        FallJet,
+    }
+
     let mut rock_heights = ROCK_HEIGHTS.iter().cycle();
     let mut jets = puzzle.jets.iter().cycle();
 
@@ -195,7 +212,6 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
     let mut current_rock = ROCKS[0];
     let mut current_rock_height = 0;
     // Represents the bottom of the current rock.
-    let mut topmost_rock = 0;
     let mut rock_bottom = 1;
     let mut chamber_rows: u64 = 0;
     while rock_count < MAX_ROCK_COUNT {
@@ -218,9 +234,9 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                 };
                 // rock_heights is a cycled iterator that will never return None.
                 current_rock_height = unsafe { *rock_heights.next().unwrap_unchecked() };
-                rock_bottom = topmost_rock + 1;
-                // Normally, rocks start at topmost_rock + 4. However, it is guaranteed that each
-                // rock can shift 4x and fall 3x without hitting anything (other than the side
+                rock_bottom = chamber.max_height + 1;
+                // Normally, rocks start at chamber.max_height + 4. However, it is guaranteed that
+                // each rock can shift 4x and fall 3x without hitting anything (other than the side
                 // walls), so the falls can be unconditionally simulated, while a lookup table can
                 // be used for the side walls.
                 state = State::FallJet;
@@ -242,10 +258,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
                     // rock_bottom is where rocks spawn, which is one above the actual topmost
                     // rock.
                     let possible_new_top = rock_bottom + current_rock_height - 1;
-                    if possible_new_top > topmost_rock {
-                        chamber.mark_new_rows_used(possible_new_top - topmost_rock);
-                        topmost_rock = possible_new_top;
-                    }
+                    chamber.mark_new_rows_used(possible_new_top);
 
                     *chamber.row_mut(rock_bottom) |= (current_rock & 0xffff) as Row;
                     *chamber.row_mut(rock_bottom + 1) |= (current_rock >> 16 & 0xffff) as Row;
@@ -267,7 +280,7 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
             }
         }
     }
-    topmost_rock
+    chamber.max_height
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
