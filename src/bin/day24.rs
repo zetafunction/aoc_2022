@@ -14,11 +14,11 @@
 
 use aoc_2022::geometry::{Bounds2, Point2, Vector2};
 use aoc_2022::{oops, oops::Oops};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read};
 use std::str::FromStr;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum Direction {
     North,
     East,
@@ -45,7 +45,7 @@ fn get_vector_for_direction(d: Direction) -> Vector2 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Blizzard {
     position: Point2,
     direction: Direction,
@@ -113,7 +113,6 @@ impl FromStr for Puzzle {
             min: Point2::new(0, 0),
             max: Point2::new(max_x - 1, max_y - 1),
         };
-        println!("{blizzards:?}");
         Ok(Puzzle { blizzards, bounds })
     }
 }
@@ -138,9 +137,7 @@ fn visualize(bounds: &Bounds2, blizzards: &[Blizzard]) -> String {
                 Visualization::Count(x) => *x += 1,
             })
             .or_insert(Visualization::Direction(blizzard.direction));
-        println!("Processed blizzard {blizzard:?}");
     }
-    println!("{blizzards_and_counts:?}");
     let lines = (bounds.min.y..=bounds.max.y)
         .map(|y| {
             format!(
@@ -168,7 +165,52 @@ fn visualize(bounds: &Bounds2, blizzards: &[Blizzard]) -> String {
     lines.join("\n")
 }
 
+struct SimState {
+    blizzards: Vec<Blizzard>,
+    positions: HashSet<Point2>,
+}
+
+impl SimState {
+    fn new(blizzards: Vec<Blizzard>) -> Self {
+        let positions = blizzards.iter().map(|blizzard| blizzard.position).collect();
+        Self {
+            blizzards,
+            positions,
+        }
+    }
+}
+
+struct SearchState {
+    position: Point2,
+    state_index: usize,
+}
+
+fn find_cycle_length(puzzle: &Puzzle) -> usize {
+    let mut next = puzzle.blizzards.clone();
+    let mut seen = HashSet::new();
+    for i in 0.. {
+        if seen.contains(&next) {
+            // Assume the first duplicate indicates a cycle.
+            return i;
+        }
+        seen.insert(next.clone());
+        next = puzzle.get_next_blizzard_positions(&next);
+    }
+    0
+}
+
 fn part1(puzzle: &Puzzle) -> usize {
+    let end = Point2::new(
+        puzzle.bounds.max.x - puzzle.bounds.min.x + 1,
+        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
+    );
+    let mut states = vec![];
+    let mut queue = VecDeque::new();
+    states.push(SimState::new(puzzle.blizzards.clone()));
+    queue.push_back(SearchState {
+        position: Point2::new(0, -1),
+        state_index: 0,
+    });
     0
 }
 
@@ -183,8 +225,8 @@ fn main() -> Result<(), Oops> {
 
     let puzzle = parse(&input)?;
 
-    println!("{}", part1(&puzzle));
     println!("{}", part2(&puzzle));
+    println!("{}", part1(&puzzle));
 
     Ok(())
 }
@@ -192,6 +234,16 @@ fn main() -> Result<(), Oops> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const SIMPLE: &str = concat!(
+        "#.#####\n",
+        "#.....#\n",
+        "#>....#\n",
+        "#.....#\n",
+        "#...v.#\n",
+        "#.....#\n",
+        "#####.#\n",
+    );
 
     const SAMPLE: &str = concat!(
         "#.######\n",
@@ -204,15 +256,6 @@ mod tests {
 
     #[test]
     fn simulation() {
-        const SIMPLE: &str = concat!(
-            "#.#####\n",
-            "#.....#\n",
-            "#>....#\n",
-            "#.....#\n",
-            "#...v.#\n",
-            "#.....#\n",
-            "#####.#\n",
-        );
         let puzzle = parse(SIMPLE).unwrap();
         assert_eq!(
             concat!(".....\n", ">....\n", ".....\n", "...v.\n", ".....",),
@@ -243,6 +286,12 @@ mod tests {
             concat!(".....\n", ">....\n", ".....\n", "...v.\n", ".....",),
             visualize(&puzzle.bounds, &next)
         );
+    }
+
+    #[test]
+    fn cycle_length() {
+        assert_eq!(5, find_cycle_length(&parse(SIMPLE).unwrap()));
+        assert_eq!(12, find_cycle_length(&parse(SAMPLE).unwrap()));
     }
 
     #[test]

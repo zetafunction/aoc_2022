@@ -79,7 +79,7 @@ impl Sub for Point2 {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Vector2 {
     pub x: i32,
     pub y: i32,
