@@ -105,16 +105,15 @@ impl Puzzle {
 
     fn compute_states(bounds: &Bounds2, initial: &[Blizzard]) -> Vec<SimState> {
         let mut states = vec![];
-        let mut seen = HashSet::new();
         states.push(SimState::new(initial.to_vec()));
-        seen.insert(initial.to_vec());
         loop {
             let next = Self::move_blizzards(bounds, &states.last().unwrap().blizzards);
-            if seen.contains(&next) {
+            // Since the blizzards wrap around in a rectangular valley, there should eventually be
+            // a cycle that maps back to the initial blizzard state.
+            if next == initial {
                 break;
             }
             states.push(SimState::new(next.clone()));
-            seen.insert(next);
         }
         states
     }
