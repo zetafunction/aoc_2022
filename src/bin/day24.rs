@@ -186,6 +186,13 @@ struct Search {
     state_index: usize,
 }
 
+// Unlike Search, state_index is wrapped at the cycle length.
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+struct MemoizedSearch {
+    position: Point2,
+    state_index: usize,
+}
+
 fn find_cycle_length(puzzle: &Puzzle) -> usize {
     let mut next = puzzle.blizzards.clone();
     let mut seen = HashSet::new();
@@ -201,11 +208,10 @@ fn find_cycle_length(puzzle: &Puzzle) -> usize {
 }
 
 fn part1(puzzle: &Puzzle) -> usize {
-    println!("Puzzle bounds: {:?}", puzzle.bounds);
     let cycle_length = find_cycle_length(puzzle);
     let end = Point2::new(
-        puzzle.bounds.max.x - puzzle.bounds.min.x + 1,
-        puzzle.bounds.max.y - puzzle.bounds.min.y + 1,
+        puzzle.bounds.max.x - puzzle.bounds.min.x,
+        puzzle.bounds.max.y - puzzle.bounds.min.y,
     );
 
     let mut states = vec![];
@@ -215,21 +221,27 @@ fn part1(puzzle: &Puzzle) -> usize {
         position: Point2::new(0, -1),
         state_index: 0,
     };
-
     let mut queue = VecDeque::new();
     queue.push_back(initial_search);
 
+    let memoized_initial_search = MemoizedSearch {
+        position: Point2::new(0, -1),
+        state_index: 0,
+    };
     let mut visited = HashSet::new();
-    visited.insert(initial_search);
+    visited.insert(memoized_initial_search);
 
     while let Some(next) = queue.pop_front() {
-        println!("Considering {:?}", next.position);
+        println!(
+            "Considering {:?} at t = {}",
+            next.position, next.state_index
+        );
         if next.position == end {
-            return next.state_index;
+            return next.state_index + 1;
         }
 
-        let next_state_index = (next.state_index + 1) % cycle_length;
-        let next_sim_state = match states.get(next_state_index) {
+        let next_state_index = (next.state_index + 1);
+        let next_sim_state = match states.get(next_state_index % cycle_length) {
             None => {
                 let state = &states[next.state_index];
                 states.push(SimState::new(
@@ -254,7 +266,9 @@ fn part1(puzzle: &Puzzle) -> usize {
                 state_index: next_state_index,
             });
         }
-        if !next_sim_state.positions.contains(&next.position) {
+        if !next_sim_state.positions.contains(&next.position)
+            && puzzle.bounds.contains(&next.position)
+        {
             moves.push(Search {
                 position: next.position,
                 state_index: next_state_index,
@@ -263,11 +277,15 @@ fn part1(puzzle: &Puzzle) -> usize {
 
         // Prune.
         for m in moves {
-            if visited.contains(&m) {
+            let memoized = MemoizedSearch {
+                position: m.position,
+                state_index: m.state_index % cycle_length,
+            };
+            if visited.contains(&memoized) {
                 continue;
             }
             queue.push_back(m);
-            visited.insert(m);
+            visited.insert(memoized);
         }
     }
     panic!("no path!");
