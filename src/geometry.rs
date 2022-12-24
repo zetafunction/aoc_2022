@@ -22,10 +22,12 @@ pub struct Point2 {
 }
 
 impl Point2 {
+    #[must_use]
     pub fn new(x: i32, y: i32) -> Self {
         Point2 { x, y }
     }
 
+    #[must_use]
     pub fn neighbors(&self) -> Neighbors2 {
         const NEIGHBOR_VECTORS: &[Vector2] = &[
             Vector2::new(-1, 0),
@@ -86,8 +88,9 @@ pub struct Vector2 {
 }
 
 impl Vector2 {
+    #[must_use]
     pub const fn new(x: i32, y: i32) -> Self {
-        Vector2 { x, y }
+        Self { x, y }
     }
 }
 
@@ -99,28 +102,42 @@ pub struct Bounds2 {
 }
 
 impl Bounds2 {
+    #[must_use]
     pub fn contains(&self, p: &Point2) -> bool {
         p.x >= self.min.x && p.x <= self.max.x && p.y >= self.min.y && p.y <= self.max.y
     }
 
+    // TODO: What numeric type should this use?
+    #[must_use]
+    pub fn height(&self) -> i32 {
+        self.max.x - self.min.x
+    }
+
+    // TODO: What numeric type should this use?
+    #[must_use]
+    pub fn width(&self) -> i32 {
+        self.max.y - self.min.y
+    }
+
+    #[must_use]
     pub fn from_points<I>(i: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<Point2>,
     {
-        i.into_iter()
-            .fold(Self::new_uninitialized(), |b, p| Bounds2 {
-                min: Point2::new(
-                    std::cmp::min(b.min.x, p.borrow().x),
-                    std::cmp::min(b.min.y, p.borrow().y),
-                ),
-                max: Point2::new(
-                    std::cmp::max(b.max.x, p.borrow().x),
-                    std::cmp::max(b.max.y, p.borrow().y),
-                ),
-            })
+        i.into_iter().fold(Self::new_uninitialized(), |b, p| Self {
+            min: Point2::new(
+                std::cmp::min(b.min.x, p.borrow().x),
+                std::cmp::min(b.min.y, p.borrow().y),
+            ),
+            max: Point2::new(
+                std::cmp::max(b.max.x, p.borrow().x),
+                std::cmp::max(b.max.y, p.borrow().y),
+            ),
+        })
     }
 
+    #[must_use]
     fn new_uninitialized() -> Self {
         Bounds2 {
             min: Point2::new(i32::MAX, i32::MAX),
@@ -137,10 +154,12 @@ pub struct Point3 {
 }
 
 impl Point3 {
+    #[must_use]
     pub const fn new(x: i32, y: i32, z: i32) -> Self {
         Point3 { x, y, z }
     }
 
+    #[must_use]
     pub fn neighbors(&self) -> Neighbors3 {
         const NEIGHBOR_VECTORS: &[Vector3] = &[
             Vector3::new(-1, 0, 0),
@@ -203,6 +222,7 @@ pub struct Bounds3 {
 }
 
 impl Bounds3 {
+    #[must_use]
     pub fn contains(&self, p: &Point3) -> bool {
         p.x >= self.min.x
             && p.x <= self.max.x
@@ -212,6 +232,7 @@ impl Bounds3 {
             && p.z <= self.max.z
     }
 
+    #[must_use]
     pub fn outset(&self, n: i32) -> Self {
         Bounds3 {
             min: Point3::new(self.min.x - n, self.min.y - n, self.min.z - n),
@@ -219,28 +240,29 @@ impl Bounds3 {
         }
     }
 
+    #[must_use]
     pub fn from_points<I>(i: I) -> Self
     where
         I: IntoIterator,
         I::Item: Borrow<Point3>,
     {
-        i.into_iter()
-            .fold(Self::new_uninitialized(), |b, p| Bounds3 {
-                min: Point3::new(
-                    std::cmp::min(b.min.x, p.borrow().x),
-                    std::cmp::min(b.min.y, p.borrow().y),
-                    std::cmp::min(b.min.z, p.borrow().z),
-                ),
-                max: Point3::new(
-                    std::cmp::max(b.max.x, p.borrow().x),
-                    std::cmp::max(b.max.y, p.borrow().y),
-                    std::cmp::max(b.max.z, p.borrow().z),
-                ),
-            })
+        i.into_iter().fold(Self::new_uninitialized(), |b, p| Self {
+            min: Point3::new(
+                std::cmp::min(b.min.x, p.borrow().x),
+                std::cmp::min(b.min.y, p.borrow().y),
+                std::cmp::min(b.min.z, p.borrow().z),
+            ),
+            max: Point3::new(
+                std::cmp::max(b.max.x, p.borrow().x),
+                std::cmp::max(b.max.y, p.borrow().y),
+                std::cmp::max(b.max.z, p.borrow().z),
+            ),
+        })
     }
 
+    #[must_use]
     fn new_uninitialized() -> Self {
-        Bounds3 {
+        Self {
             min: Point3::new(i32::MAX, i32::MAX, i32::MAX),
             max: Point3::new(i32::MIN, i32::MIN, i32::MIN),
         }

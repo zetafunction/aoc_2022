@@ -65,11 +65,9 @@ impl Puzzle {
                 let next_position = if self.bounds.contains(&next_position) {
                     next_position
                 } else {
-                    let width = self.bounds.max.x - self.bounds.min.x + 1;
-                    let height = self.bounds.max.y - self.bounds.min.y + 1;
                     Point2::new(
-                        (next_position.x + width) % width,
-                        (next_position.y + height) % height,
+                        (next_position.x + self.bounds.width()) % self.bounds.width(),
+                        (next_position.y + self.bounds.height()) % self.bounds.height(),
                     )
                 };
                 Blizzard {
