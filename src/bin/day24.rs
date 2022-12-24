@@ -207,25 +207,21 @@ fn find_cycle_length(puzzle: &Puzzle) -> usize {
     0
 }
 
-fn part1(puzzle: &Puzzle) -> usize {
+fn bfs(puzzle: &Puzzle, start: Point2, end: Point2, starting_state: usize) -> usize {
     let cycle_length = find_cycle_length(puzzle);
-    let end = Point2::new(
-        puzzle.bounds.max.x - puzzle.bounds.min.x,
-        puzzle.bounds.max.y - puzzle.bounds.min.y,
-    );
 
     let mut states = vec![];
     states.push(SimState::new(puzzle.blizzards.clone()));
 
     let initial_search = Search {
-        position: Point2::new(0, -1),
+        position: start,
         state_index: 0,
     };
     let mut queue = VecDeque::new();
     queue.push_back(initial_search);
 
     let memoized_initial_search = MemoizedSearch {
-        position: Point2::new(0, -1),
+        position: start,
         state_index: 0,
     };
     let mut visited = HashSet::new();
@@ -287,6 +283,15 @@ fn part1(puzzle: &Puzzle) -> usize {
         }
     }
     panic!("no path!");
+}
+
+fn part1(puzzle: &Puzzle) -> usize {
+    let start = Point2::new(0, -1);
+    let end = Point2::new(
+        puzzle.bounds.max.x - puzzle.bounds.min.x,
+        puzzle.bounds.max.y - puzzle.bounds.min.y,
+    );
+    bfs(puzzle, start, end, 0)
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
