@@ -371,6 +371,30 @@ mod tests {
             concat!("2.v.<>\n", "<.<..<\n", ".^>^22\n", ".2..2.",),
             puzzle.visualize(5)
         );
+        assert_eq!(
+            concat!(">2.<.<\n", ".2v^2<\n", ">..>2>\n", "<....>",),
+            puzzle.visualize(6)
+        );
+        assert_eq!(
+            concat!(".22^2.\n", "<v.<2.\n", ">>v<>.\n", ">....<",),
+            puzzle.visualize(7)
+        );
+        assert_eq!(
+            concat!(".<>2^.\n", "..<<.<\n", ".22..>\n", ".2v^2.",),
+            puzzle.visualize(8)
+        );
+        assert_eq!(
+            concat!("<.2>>.\n", ".<<.<.\n", ">2>2^.\n", ".v><^.",),
+            puzzle.visualize(9)
+        );
+        assert_eq!(
+            concat!(".2..>2\n", "<2v2^.\n", "<>.>2.\n", "..<>..",),
+            puzzle.visualize(10)
+        );
+        assert_eq!(
+            concat!("2^.^2>\n", "<v<.^<\n", "..2.>2\n", ".<..>.",),
+            puzzle.visualize(11)
+        );
     }
 
     #[test]
