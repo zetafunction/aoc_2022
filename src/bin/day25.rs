@@ -34,12 +34,12 @@ struct Snafu {
 }
 
 impl Snafu {
-    fn as_decimal(&self) -> i32 {
+    fn to_decimal(&self) -> i64 {
         self.digits
             .iter()
             .enumerate()
             .fold(0, |acc, (position, digit)| {
-                acc + 5i32.pow(position as u32)
+                acc + 5i64.pow(position as u32)
                     * match digit {
                         SnafuDigit::DoubleMinus => -2,
                         SnafuDigit::Minus => -1,
@@ -48,6 +48,30 @@ impl Snafu {
                         SnafuDigit::Two => 2,
                     }
             })
+    }
+
+    fn from_decimal(mut x: i64) -> Self {
+        let mut digits = vec![];
+        while x != 0 {
+            let current = x % 5;
+            x = (x - match current {
+                0 => 0,
+                1 => 1,
+                2 => 2,
+                3 => -2,
+                4 => -1,
+                _ => panic!(),
+            }) / 5;
+            digits.push(match current {
+                0 => SnafuDigit::Zero,
+                1 => SnafuDigit::One,
+                2 => SnafuDigit::Two,
+                3 => SnafuDigit::DoubleMinus,
+                4 => SnafuDigit::Minus,
+                _ => panic!(),
+            });
+        }
+        Self { digits }
     }
 }
 
@@ -73,6 +97,22 @@ impl FromStr for Snafu {
     }
 }
 
+impl ToString for Snafu {
+    fn to_string(&self) -> String {
+        self.digits
+            .iter()
+            .rev()
+            .map(|digit| match digit {
+                SnafuDigit::DoubleMinus => '=',
+                SnafuDigit::Minus => '-',
+                SnafuDigit::Zero => '0',
+                SnafuDigit::One => '1',
+                SnafuDigit::Two => '2',
+            })
+            .collect::<String>()
+    }
+}
+
 impl FromStr for Puzzle {
     type Err = Oops;
 
@@ -87,11 +127,11 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
     input.parse()
 }
 
-fn part1(puzzle: &Puzzle) -> i32 {
-    puzzle.values.iter().map(|x| x.as_decimal()).sum()
+fn part1(puzzle: &Puzzle) -> String {
+    Snafu::from_decimal(puzzle.values.iter().map(|x| x.to_decimal()).sum()).to_string()
 }
 
-fn part2(puzzle: &Puzzle) -> usize {
+fn part2(_puzzle: &Puzzle) -> usize {
     0
 }
 
@@ -118,13 +158,25 @@ mod tests {
     );
 
     #[test]
+    fn snafu_to_decimal() {
+        assert_eq!(
+            4890i64,
+            parse(SAMPLE)
+                .unwrap()
+                .values
+                .iter()
+                .map(Snafu::to_decimal)
+                .sum()
+        );
+    }
+
+    #[test]
     fn example1() {
-        // assert_eq!("2=-1=0", part1(&parse(SAMPLE).unwrap()));
-        assert_eq!(4890, part1(&parse(SAMPLE).unwrap()));
+        assert_eq!("2=-1=0", part1(&parse(SAMPLE).unwrap()));
     }
 
     #[test]
     fn example2() {
-        assert_eq!(2468013579, part2(&parse(SAMPLE).unwrap()));
+        assert_eq!(0, part2(&parse(SAMPLE).unwrap()));
     }
 }
