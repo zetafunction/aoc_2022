@@ -147,39 +147,33 @@ impl Puzzle {
         let mut visited = HashSet::new();
         visited.insert(memoized_initial_search);
 
-        while let Some(next) = queue.pop_front() {
-            if next.position == end {
-                return next.state_index;
+        while let Some(current) = queue.pop_front() {
+            if current.position == end {
+                return current.state_index;
             }
 
-            let next_state_index = next.state_index + 1;
+            let next_state_index = current.state_index + 1;
             let next_sim_state = &self.states[next_state_index % cycle_length];
 
-            // Get valid moves.
-            let mut moves = vec![];
-            for neighbor in next.position.neighbors().chain(Some(next.position)) {
+            for neighbor in current.position.neighbors().chain(Some(current.position)) {
                 if !self.bounds.contains(&neighbor) && neighbor != start && neighbor != end {
                     continue;
                 }
                 if next_sim_state.positions.contains(&neighbor) {
                     continue;
                 }
-                moves.push(Search {
+                let next = Search {
                     position: neighbor,
                     state_index: next_state_index,
-                });
-            }
-
-            // Prune.
-            for m in moves {
+                };
                 let memoized = MemoizedSearch {
-                    position: m.position,
-                    state_index: m.state_index % cycle_length,
+                    position: next.position,
+                    state_index: next.state_index % cycle_length,
                 };
                 if visited.contains(&memoized) {
                     continue;
                 }
-                queue.push_back(m);
+                queue.push_back(next);
                 visited.insert(memoized);
             }
         }
