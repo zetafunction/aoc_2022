@@ -117,6 +117,7 @@ impl Puzzle {
         }
         states
     }
+
     fn bfs(&self, start: Point2, end: Point2, starting_state: usize) -> usize {
         #[derive(Clone, Copy, Eq, Hash, PartialEq)]
         struct Search {
@@ -156,7 +157,7 @@ impl Puzzle {
 
             // Get valid moves.
             let mut moves = vec![];
-            for neighbor in next.position.neighbors() {
+            for neighbor in next.position.neighbors().chain(Some(next.position)) {
                 if !self.bounds.contains(&neighbor) && neighbor != start && neighbor != end {
                     continue;
                 }
@@ -165,12 +166,6 @@ impl Puzzle {
                 }
                 moves.push(Search {
                     position: neighbor,
-                    state_index: next_state_index,
-                });
-            }
-            if !next_sim_state.positions.contains(&next.position) {
-                moves.push(Search {
-                    position: next.position,
                     state_index: next_state_index,
                 });
             }
@@ -193,7 +188,6 @@ impl Puzzle {
 
     #[allow(dead_code)]
     fn visualize(&self, state_index: usize) -> String {
-        #[derive(Debug)]
         enum Visualization {
             Direction(Direction),
             Count(usize),
