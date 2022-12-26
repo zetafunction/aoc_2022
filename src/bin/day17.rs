@@ -83,9 +83,15 @@ fn parse(input: &str) -> Result<Puzzle, Oops> {
 // Empirically, smaller sizes seem to produce less throughput.
 const GRID_ROWS: usize = 1024;
 
-struct State {
-    cycle: usize,
+struct CycleState {
+    steps: usize,
     height: usize,
+}
+
+enum CycleDetector {
+    Searching,
+    Proposed(usize, usize), // expected length, current matched length
+    Found(usize, usize),    // found cycle length, found cycle height
 }
 
 struct Chamber {
@@ -93,8 +99,9 @@ struct Chamber {
     used: usize,
     data: [Row; GRID_ROWS],
     max_height: usize,
-    cycles_elapsed: usize,
-    seen: HashMap<u64, Vec<State>>,
+    steps: usize,
+    seen: HashMap<u64, Vec<CycleState>>,
+    cycle_detector: CycleDetector,
 }
 
 impl Chamber {
@@ -104,8 +111,9 @@ impl Chamber {
             used: 10,
             data: [0; GRID_ROWS],
             max_height: 0,
-            cycles_elapsed: 0,
+            steps: 0,
             seen: HashMap::new(),
+            cycle_detector: CycleDetector::Searching,
         };
         chamber.data[0] = 0xffff;
         for i in 1..GRID_ROWS {
@@ -133,24 +141,67 @@ impl Chamber {
             }
         }
 
-        self.cycles_elapsed += 1;
+        self.steps += 1;
+        if let CycleDetector::Found(_, _) = self.cycle_detector {
+            return;
+        }
         if self.max_height > 100 {
             let mut hasher = DefaultHasher::new();
             for i in 0..100 {
                 hasher.write_u16(self.data[(self.max_height - i) % GRID_ROWS]);
             }
-            self.seen
-                .entry(hasher.finish())
+            let hash = hasher.finish();
+            let cycle_states = self
+                .seen
+                .entry(hash)
                 .and_modify(|v| {
-                    v.push(State {
-                        cycle: self.cycles_elapsed,
+                    v.push(CycleState {
+                        steps: self.steps,
                         height: self.max_height,
                     })
                 })
-                .or_insert(vec![State {
-                    cycle: self.cycles_elapsed,
+                .or_insert(vec![CycleState {
+                    steps: self.steps,
                     height: self.max_height,
                 }]);
+            // TODO: Is there a better way to do this?
+            match &cycle_states[..] {
+                [.., previous, current] => match self.cycle_detector {
+                    CycleDetector::Searching => {
+                        println!(
+                            "Tentative cycle of length {}",
+                            current.steps - previous.steps
+                        );
+                        // TODO: Maybe include height here too.
+                        self.cycle_detector =
+                            CycleDetector::Proposed(current.steps - previous.steps, 1);
+                    }
+                    CycleDetector::Proposed(expected, mut matched_so_far) => {
+                        if current.steps - previous.steps != expected {
+                            self.cycle_detector = CycleDetector::Searching;
+                        } else {
+                            matched_so_far += 1;
+                            if matched_so_far == expected {
+                                self.cycle_detector = CycleDetector::Found(
+                                    expected,
+                                    current.height - previous.height,
+                                );
+                                println!(
+                                    "Found a cycle of length {expected} with height difference {}",
+                                    current.height - previous.height
+                                );
+                            } else {
+                                self.cycle_detector =
+                                    CycleDetector::Proposed(expected, matched_so_far);
+                            }
+                        }
+                    }
+                    CycleDetector::Found(_, _) => panic!(),
+                },
+                _ => {
+                    self.cycle_detector = CycleDetector::Searching;
+                }
+            }
         }
     }
 
@@ -168,7 +219,21 @@ impl Chamber {
         for i in (self.base..=self.base + self.used).rev() {
             let data = self.data[i % GRID_ROWS];
             println!(
-                "{}",
+                "{i:0>4} {}",
+                (7..16)
+                    .rev()
+                    .map(|pos| if data & (1 << pos) == 0 { '.' } else { '#' })
+                    .collect::<String>()
+            );
+        }
+    }
+
+    #[allow(dead_code)]
+    fn render_buffer(&self) {
+        println!("debug render");
+        for (i, data) in self.data.iter().enumerate().rev() {
+            println!(
+                "{i:0>4} {}",
                 (7..16)
                     .rev()
                     .map(|pos| if data & (1 << pos) == 0 { '.' } else { '#' })
@@ -276,16 +341,41 @@ fn run_simulation<const MAX_ROCK_COUNT: usize>(puzzle: &Puzzle) -> usize {
             State::FallJet => {
                 chamber_rows = (chamber_rows << 16) | u64::from(chamber.row(rock_bottom - 1));
                 if (current_rock & chamber_rows) != 0 {
-                    // rock_bottom is where rocks spawn, which is one above the actual topmost
-                    // rock.
-                    let possible_new_top = rock_bottom + current_rock_height - 1;
-                    chamber.mark_new_rows_used(possible_new_top);
-
                     *chamber.row_mut(rock_bottom) |= (current_rock & 0xffff) as Row;
                     *chamber.row_mut(rock_bottom + 1) |= (current_rock >> 16 & 0xffff) as Row;
                     *chamber.row_mut(rock_bottom + 2) |= (current_rock >> 32 & 0xffff) as Row;
                     *chamber.row_mut(rock_bottom + 3) |= (current_rock >> 48 & 0xffff) as Row;
                     state = State::NewRock;
+
+                    // rock_bottom is where rocks spawn, which is one above the actual topmost
+                    // rock.
+                    let possible_new_top = rock_bottom + current_rock_height - 1;
+                    chamber.mark_new_rows_used(possible_new_top);
+
+                    if let CycleDetector::Found(length, height) = chamber.cycle_detector {
+                        let remaining = MAX_ROCK_COUNT - rock_count;
+                        if remaining > length {
+                            let remaining_cycles = remaining / length;
+                            rock_count += remaining_cycles * length;
+                            let skipped_height = remaining_cycles * height;
+                            let previous_height = chamber.max_height % GRID_ROWS;
+                            chamber.max_height += skipped_height;
+                            let height = chamber.max_height % GRID_ROWS;
+
+                            if height > previous_height {
+                                let delta = height - previous_height;
+                                chamber.data.rotate_right(delta);
+                                chamber.base += delta;
+                                chamber.base %= GRID_ROWS;
+                            } else {
+                                let delta = previous_height - height;
+                                chamber.data.rotate_left(delta);
+                                chamber.base -= delta;
+                                chamber.base %= GRID_ROWS;
+                            }
+                        }
+                    }
+
                     continue;
                 }
                 rock_bottom -= 1;
@@ -309,7 +399,6 @@ fn part1(puzzle: &Puzzle) -> usize {
 }
 
 fn part2(puzzle: &Puzzle) -> usize {
-    return run_simulation::<1_000_000_000>(puzzle);
     run_simulation::<1_000_000_000_001>(puzzle)
 }
 
